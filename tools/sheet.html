@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head><meta charset="utf-8"><title>sheet</title><!-- still frames of the animated events at fixed times, for tuning: serve the repo and open /tools/sheet.html -->
+<style>body{margin:0;background:#0a0c11;color:#a3aab6;font:11px system-ui;padding:10px}.r{display:flex;gap:6px;align-items:center;margin-bottom:6px}.r b{width:110px;color:#e9ecf1}canvas{background:#0d1017}</style>
+</head>
+<body>
+<div id="rows"></div>
+<script src="/dist/coriolis.min.js"></script>
+<script>
+const rows = document.getElementById('rows');
+const T = [0.2, 0.7, 1.2, 1.7, 2.2, 2.7, 3.2, 3.7];
+for (const name of ['thunderstorm', 'supercell', 'hector', 'catatumbo', 'cumulus', 'morning-glory', 'shelf-cloud']) {
+  const r = document.createElement('div'); r.className = 'r'; r.innerHTML = `<b>${name}</b>`;
+  for (const t of T) {
+    const c = document.createElement('canvas'); c.width = 150; c.height = 110;
+    Coriolis.body(name, c.getContext('2d'), 110, t, true, { w: 150, ground: true });
+    r.appendChild(c);
+  }
+  rows.appendChild(r);
+}
+</script>
+</body>
+</html>

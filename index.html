@@ -23,8 +23,9 @@ h1{margin:10px 0 8px;font-size:clamp(34px,5vw,54px);letter-spacing:-.03em;line-h
 h2{margin:44px 0 4px;font-size:22px;letter-spacing:-.02em}
 .sub{margin:0 0 16px;color:var(--ink-3);font-size:14px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}
+.grid.wide{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
 .cell{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 12px 10px;text-align:center}
-.cell canvas{display:block;margin:0 auto;max-width:100%}
+.cell canvas{display:block;margin:0 auto;max-width:100%;height:auto!important}
 .nm{margin-top:8px;font-weight:700;font-size:14px}
 .meta{font-size:12px;color:var(--ink-3);line-height:1.35;text-wrap:balance}
 pre{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;overflow-x:auto;font:13px/1.55 "IBM Plex Mono",ui-monospace,monospace;color:var(--ink-2);margin:0}
@@ -39,7 +40,7 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
 <header class="wrap">
   <div class="eyebrow" id="eyebrow">coriolis</div>
   <h1>Weather events, drawn as dots.</h1>
-  <p class="lede">Named cyclones, hurricanes and typhoons as the satellite sees them: an eye, an eyewall, and rainbands spiralling in. Each one spins the right way for its hemisphere. No dependencies, one script.</p>
+  <p class="lede">Cyclones as the satellite sees them, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit by their own lightning. Twenty-two named events. No dependencies, one script.</p>
   <div class="hero"><canvas class="wx" width="720" height="360" data-wx-body="yasi" data-wx-ground="1"></canvas></div>
 </header>
 
@@ -52,7 +53,7 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
 
   <h2>Use it</h2>
   <p class="sub">One script, then a canvas per storm. Height is the size; a wider canvas gives the outer bands room.</p>
-  <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.1.0/dist/coriolis.min.js"&gt;&lt;/script&gt;
+  <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.2.0/dist/coriolis.min.js"&gt;&lt;/script&gt;
 &lt;canvas class="wx" width="200" height="200" data-wx-body="tracy"&gt;&lt;/canvas&gt;</code></pre>
   <table>
     <tr><th>attribute</th><th>value</th><th>what it does</th></tr>
@@ -64,6 +65,11 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
     <tr><td>data-wx-pitch</td><td>degrees</td><td>inflow angle, 22 by default; lower winds the bands tighter</td></tr>
     <tr><td>data-wx-reach</td><td>number</td><td>storm size relative to the canvas, 1 fills it</td></tr>
     <tr><td>data-wx-omega</td><td>number</td><td>wind at the eyewall, radians a second</td></tr>
+    <tr><td>data-wx-form</td><td>puff, roll</td><td>clouds: cumulus heads, or one rolling tube</td></tr>
+    <tr><td>data-wx-puffs / -radius / -spin / -drift</td><td>number</td><td>clouds: how many heads · size as a fraction of the height · roll or tumble rate · drift in widths a second</td></tr>
+    <tr><td>data-wx-rate / -cg</td><td>number</td><td>thunderstorm: flashes a second · share that strike the ground (0 to 1)</td></tr>
+    <tr><td>data-wx-anvil / -tower</td><td>number</td><td>thunderstorm: anvil width and tower height, 1 by default</td></tr>
+    <tr><td>data-wx-rain</td><td>0</td><td>thunderstorm: no rain under the base</td></tr>
     <tr><td>data-wx-ink / -lite / -ground</td><td>1</td><td>monochrome dots that follow the page theme · half the dots · dark sea under the cloud</td></tr>
     <tr><td>data-wx-glow</td><td>0</td><td>no soft glow under the core, just the dots on a clear canvas</td></tr>
   </table>
@@ -88,15 +94,24 @@ const META = {
   patricia: '2015 · eastern Pacific · strongest winds measured, pinhole eye',
   dorian: '2019 · Bahamas · category 5, a textbook eye',
   haiyan: '2013 · Philippines · category 5',
-  tip: '1979 · western Pacific · the largest storm ever recorded'
+  tip: '1979 · western Pacific · the largest storm ever recorded',
+  cumulus: 'fair-weather heads, drifting and tumbling',
+  'morning-glory': 'Gulf of Carpentaria · a roll cloud a thousand km long, turning as it comes',
+  'shelf-cloud': 'the leading edge of a squall line, low and dark',
+  thunderstorm: 'a cumulonimbus at night, lit from inside',
+  supercell: 'a rotating giant with a wide anvil, ground strikes',
+  hector: 'Tiwi Islands · the same storm most afternoons of the build-up',
+  catatumbo: 'Lake Maracaibo · the most lightning on Earth, nearly all in the cloud'
 };
-const SUB = { Cyclones: 'South of the equator. Clockwise.', Hurricanes: 'The Atlantic and eastern Pacific. Anticlockwise.', Typhoons: 'The western Pacific. Anticlockwise.' };
+const SUB = { Cyclones: 'South of the equator. Clockwise.', Hurricanes: 'The Atlantic and eastern Pacific. Anticlockwise.', Typhoons: 'The western Pacific. Anticlockwise.',
+  Clouds: 'From the side. Puffs tumble forward; a roll cloud turns about its own axis.', Thunderstorms: 'At night. Each flash is on a schedule hashed from the clock, so a still frame works too.' };
+const WIDE = { Clouds: 1, Thunderstorms: 1 };
 const nice = s => s[0].toUpperCase() + s.slice(1);
-const cell = (attrs, nm, meta) => `<div class="cell"><canvas class="wx" width="150" height="150" ${attrs}></canvas><div class="nm">${nm}</div><div class="meta">${meta}</div></div>`;
+const cell = (attrs, nm, meta, wide) => `<div class="cell"><canvas class="wx" width="${wide ? 220 : 150}" height="${wide ? 140 : 150}" ${attrs}></canvas><div class="nm">${nm}</div><div class="meta">${meta}</div></div>`;
 let h = '';
 for (const [grp, names] of Object.entries(Coriolis.GROUPS)) {
-  h += `<h2>${grp}</h2><p class="sub">${SUB[grp]}</p><div class="grid">`;
-  for (const n of names) h += cell(`data-wx-body="${n}"`, nice(n), META[n]);
+  h += `<h2>${grp}</h2><p class="sub">${SUB[grp]}</p><div class="grid${WIDE[grp] ? ' wide' : ''}">`;
+  for (const n of names) h += cell(`data-wx-body="${n}"${WIDE[grp] ? ' data-wx-ground="1"' : ''}`, nice(n).replace('-', ' '), META[n], WIDE[grp]);
   h += '</div>';
 }
 document.getElementById('groups').innerHTML = h;

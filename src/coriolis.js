@@ -1,4 +1,4 @@
-/*! coriolis 0.1.0 — weather events, drawn as dots. Canvas 2D, no dependencies. MIT. */
+/*! coriolis 0.2.0 — weather events, drawn as dots. Canvas 2D, no dependencies. MIT. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.Coriolis = factory();
@@ -11,6 +11,11 @@
   const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
   const frac = v => v - Math.floor(v);
   const smooth = v => { v = clamp01(v); return v * v * (3 - 2 * v); };
+  // point i of n on a fibonacci sphere
+  const fib = (i, n) => {
+    const g = Math.PI * (3 - Math.sqrt(5)), y = 1 - 2 * (i + 0.5) / n, r = Math.sqrt(1 - y * y), a = i * g;
+    return [r * Math.cos(a), y, r * Math.sin(a)];
+  };
   // 2-d value noise, smooth, for cloud texture
   const noise = (x, y) => {
     const xi = Math.floor(x), yi = Math.floor(y); let fx = x - xi, fy = y - yi;
@@ -59,12 +64,12 @@
   };
   // Every mode paints its soft glow (radial gradients under the dots) only when !ink and
   // opts.glow !== false, so glow:false leaves just the dots on a clear canvas.
-  // Optional sea ground: a pill of deep water under the cloud. Leaves the clip set.
-  function paintSea(ctx, W, size) {
+  // Optional ground: a pill of sky or sea, top colour to bottom colour. Leaves the clip set.
+  function paintPill(ctx, W, size, top, bottom) {
     const half = size / 2, cx = W / 2, R = half * 0.98;
     ctx.beginPath(); ctx.roundRect(cx - W / 2 + half - R, half - R, W - 2 * (half - R), 2 * R, R); ctx.clip();
-    const bg = ctx.createRadialGradient(cx, half * 0.8, 0, cx, half, Math.max(R, W / 2));
-    bg.addColorStop(0, '#0c2547'); bg.addColorStop(1, '#040c1a');
+    const bg = ctx.createLinearGradient(0, 0, 0, size);
+    bg.addColorStop(0, top); bg.addColorStop(1, bottom);
     ctx.fillStyle = bg; ctx.fillRect(0, 0, W, size);
   }
   function paintRim(ctx, W, size) {
@@ -81,6 +86,7 @@
   // `cat` (1–5) is how organised it is: a category 5 has a pinhole eye and crisp symmetric bands, a
   // category 1 is a ragged lump with no eye and most of its cloud thrown to one side.
   const CLOUD = { cold: [70, 95, 135], mid: [175, 192, 215], hot: [255, 255, 255], glow: [110, 145, 200] };
+  const SEA = ['#0a2040', '#040c1a'];
   function drawCyclone(ctx, size, t, dark, o = {}) {
     const W = o.w ?? size, half = size / 2, cx = W / 2;
     const ink = !!o.ink, pal = buildPal(o.palette || CLOUD);
@@ -102,7 +108,7 @@
     const rBase = (o.rBase ?? (ink ? 1.25 : 1.0)) * M, rDepth = (o.rDepth ?? (ink ? 1.2 : 1.3)) * M, rMin = 0.3;
 
     ctx.save();
-    if (o.ground) paintSea(ctx, W, size);
+    if (o.ground) paintPill(ctx, W, size, (o.sky || SEA)[0], (o.sky || SEA)[1]);
     ctx.translate(cx, half);
     ctx.globalCompositeOperation = ink ? 'source-over' : 'lighter';
     const dot = dotPainter(ctx, ink, dark);
@@ -138,14 +144,166 @@
     if (o.ground) paintRim(ctx, W, size);
   }
 
+  /* ================================================================== clouds */
+  // Cloud from the side. `form: 'puff'` is cumulus: a few cauliflower heads that drift along and
+  // tumble forward, dots on noise-swollen spheres with flat bases. `form: 'roll'` is one long tube
+  // turning about its own axis as it comes, the Morning Glory. Both are lit from above and in front,
+  // so the tops are bright and the undersides shadowed.
+  const CUMULUS = { cold: [95, 108, 135], mid: [190, 198, 215], hot: [255, 253, 248], glow: [140, 160, 200] };
+  const SKY = ['#182848', '#080c18'];
+  function drawClouds(ctx, size, t, dark, o = {}) {
+    const W = o.w ?? size, half = size / 2, cx = W / 2;
+    const ink = !!o.ink, pal = buildPal(o.palette || CUMULUS);
+    const M = radiusScale(size), lite = o.lite ? 0.5 : 1;
+    const roll = o.form === 'roll';
+    const drift = o.drift ?? 0.04, spin = o.spin ?? (roll ? 0.4 : 0.15);
+    const N = Math.round((o.n ?? 900) * countScale(size, 1.3, 20) * Math.sqrt(W / size) * lite * (ink ? 0.4 : 1));
+    const rBase = (o.rBase ?? (ink ? 1.3 : 1.0)) * M, rDepth = (o.rDepth ?? (ink ? 1.1 : 1.2)) * M, rMin = 0.3;
+    const dot = dotPainter(ctx, ink, dark);
+
+    ctx.save();
+    if (o.ground) paintPill(ctx, W, size, (o.sky || SKY)[0], (o.sky || SKY)[1]);
+    ctx.translate(cx, half);
+    ctx.globalCompositeOperation = ink ? 'source-over' : 'lighter';
+    if (!ink && o.glow !== false) {   // light behind the tops
+      const g = ctx.createRadialGradient(0, -size * 0.12, 0, 0, -size * 0.12, size * 0.7);
+      g.addColorStop(0, rgba(pal.glow, 0.22)); g.addColorStop(1, rgba(pal.glow, 0));
+      ctx.fillStyle = g; ctx.fillRect(-W, -size, 2 * W, 2 * size);
+    }
+    // one dot on a cloud surface: z toward the viewer, up is height on the body, both in [-1, 1]
+    const paint = (x, y, z, up) => {
+      if (z < -0.25) return;
+      const L = clamp01(0.12 + 0.55 * up + 0.4 * z), a = (0.12 + 0.88 * L ** 1.6) * clamp01(1 + z * 2);
+      dot(x, y, Math.max(rMin, rBase + rDepth * L), ink ? null : ramp(pal.ramp, L), a, ink ? 0.7 * (1 - L) : 0);
+    };
+    if (roll) {
+      const Rt = size * (o.radius ?? 0.2);
+      for (let i = 0; i < N; i++) {
+        const xu = frac(E(i, 1.1) + t * drift * 0.5), x = (xu - 0.5) * 1.15 * W;
+        const ph = E(i, 2.2) * TAU + t * spin;                       // rolls about its own axis
+        const swell = 1 + 0.3 * (noise(x / size * 1.6 + 1.3 * Math.cos(ph), 1.3 * Math.sin(ph) + t * 0.1) * 2 - 1)
+                        + 0.1 * (noise(x / size * 6 + 3 * Math.cos(ph) + 9, 3 * Math.sin(ph)) * 2 - 1);
+        const rr = Rt * swell, sag = 0.05 * size * Math.sin(x / W * 4 + t * 0.15);
+        paint(x, sag - rr * Math.sin(ph) * 0.9, Math.cos(ph), Math.sin(ph));
+      }
+    } else {
+      const K = o.puffs ?? 3, n = Math.round(N / K);
+      for (let k = 0; k < K; k++) {
+        const Rp = size * (0.14 + 0.09 * E(k, 3.3)) * ((o.radius ?? 0.2) / 0.2);
+        const xu = frac((k + 0.5) / K + E(k, 4.4) * 0.15 + t * drift * 0.5), px0 = (xu - 0.5) * 1.2 * W;
+        const py0 = (E(k, 5.5) - 0.5) * 0.35 * size, ang = t * spin * (0.7 + 0.6 * E(k, 6.6)) + E(k, 7.7) * TAU;
+        const ca = Math.cos(ang), sa = Math.sin(ang);
+        for (let i = 0; i < n; i++) {
+          const uy = E(i, 8.8 + k) * 2 - 1, ua = E(i, 9.9 + k) * TAU, ur = Math.sqrt(1 - uy * uy);   // hashed, not a lattice
+          let px = ur * Math.cos(ua), py = uy, pz = ur * Math.sin(ua);
+          const y1 = py * ca - pz * sa, z1 = py * sa + pz * ca; py = y1; pz = z1;   // tumbles forward
+          if (py < -0.3) py = -0.3 - (py + 0.3) * 0.2;                                // flat base
+          const rr = Rp * (1 + 0.32 * (noise(px * 1.8 + k * 9 + t * 0.15, py * 1.8 + pz * 1.2) * 2 - 1)
+                              + 0.12 * (noise(px * 5 + k * 3, py * 5 + pz * 4 + 7) * 2 - 1));
+          paint(px0 + px * rr, py0 - py * rr, pz, py);
+        }
+      }
+    }
+    ctx.restore();
+    if (o.ground) paintRim(ctx, W, size);
+  }
+
+  /* ================================================================== storm */
+  // A thunderstorm at night: a cumulonimbus tower with an anvil, dim until lightning lights it from
+  // inside. One flash a slot of 1/rate seconds, hashed from the slot, so a still frame and a loop both
+  // work. A cloud-to-ground bolt forks to the bottom of the canvas with restrikes; the rest flicker
+  // inside the cloud. Rain falls under the base.
+  const NIGHT = { cold: [55, 65, 90], mid: [140, 150, 180], hot: [235, 240, 255], glow: [120, 150, 255] };
+  const DUSK = ['#0d1226', '#141a33'];
+  function drawStorm(ctx, size, t, dark, o = {}) {
+    const W = o.w ?? size, half = size / 2, cx = W / 2;
+    const ink = !!o.ink, pal = buildPal(o.palette || NIGHT);
+    const M = radiusScale(size), lite = o.lite ? 0.5 : 1;
+    const anvil = o.anvil ?? 1, tower = o.tower ?? 1;
+    const yBase = size * 0.22, yTop = yBase - size * 0.62 * tower;   // the cloud base and the anvil top
+    const wBase = Math.min(size * 0.19, W * 0.25), wAnvil = Math.min(size * 0.62 * anvil, W * 0.47);
+    // a column that swells a little as it climbs, then the anvil: flat underside, wide, flat top
+    const width = v => v < 0.66 ? wBase * (0.85 + 0.35 * v)
+                                : wBase * 1.08 + (wAnvil - wBase * 1.08) * smooth((v - 0.66) / 0.14) * (1 - 0.6 * smooth((v - 0.94) / 0.06));
+    const N = Math.round((o.n ?? 900) * countScale(size, 1.3, 20) * lite * (ink ? 0.4 : 1));
+    const rBase = (o.rBase ?? (ink ? 1.3 : 1.0)) * M, rDepth = (o.rDepth ?? (ink ? 1.0 : 1.2)) * M, rMin = 0.3;
+    const dot = dotPainter(ctx, ink, dark);
+
+    // the flash, if one is on: the last two slots can each hold one
+    const P = 1 / (o.rate ?? 0.6), slot = Math.floor(t / P);
+    let flash = null;
+    for (const s of [slot - 1, slot]) {
+      const start = s * P + E(s, 3.3) * P * 0.5, age = t - start;
+      if (age < 0 || age > 0.4) continue;
+      const I = Math.exp(-age * 9) + 0.6 * Math.exp(-((age - 0.12) ** 2) * 400) + 0.4 * Math.exp(-((age - 0.22) ** 2) * 500);
+      flash = { s, I: Math.min(1, I), cg: E(s, 4.4) < (o.cg ?? 0.5), x: (E(s, 5.5) - 0.5) * 1.2 * wBase, y: yBase - size * (0.12 + 0.3 * E(s, 6.6)) };
+    }
+    let bolt = null;
+    if (flash && flash.cg) {   // the channel, then three branches off it, shorter and fainter
+      const s = flash.s, n = 14, y0 = yBase - size * 0.04, y1 = size * 0.47;
+      bolt = [[[flash.x, y0]]];
+      let x = flash.x;
+      for (let j = 1; j <= n; j++) { x += (E(s, 10 + j) - 0.5) * size * 0.11; bolt[0].push([x, y0 + (y1 - y0) * j / n]); }
+      for (let b = 0; b < 3; b++) {
+        const j0 = 2 + Math.floor(E(s, 30 + b) * 8), dir = E(s, 40 + b) < 0.5 ? -1 : 1;
+        let [bx, by] = bolt[0][j0]; const br = [[bx, by]];
+        for (let j = 1; j <= 5; j++) { bx += dir * size * (0.03 + 0.05 * E(s, 50 + b * 8 + j)); by += size * 0.035 * (0.5 + E(s, 70 + b * 8 + j)); br.push([bx, by]); }
+        bolt.push(br);
+      }
+      flash.y = yBase - size * 0.1;   // a ground strike lights the base
+    }
+
+    ctx.save();
+    if (o.ground) paintPill(ctx, W, size, (o.sky || DUSK)[0], (o.sky || DUSK)[1]);
+    ctx.translate(cx, half);
+    ctx.globalCompositeOperation = ink ? 'source-over' : 'lighter';
+    if (flash && !ink && o.glow !== false) {   // the flash lights the cloud from inside
+      const g = ctx.createRadialGradient(flash.x, flash.y, 0, flash.x, flash.y, size * 0.45);
+      g.addColorStop(0, rgba(pal.glow, 0.5 * flash.I)); g.addColorStop(1, rgba(pal.glow, 0));
+      ctx.fillStyle = g; ctx.fillRect(-W, -size, 2 * W, 2 * size);
+    }
+    for (let i = 0; i < N; i++) {   // the tower: more dots up in the anvil, billowy edges
+      const v = E(i, 1.1) ** 0.8, w = width(v), cirrus = v > 0.7 ? 0.65 : 1;   // the anvil is thinner cloud
+      const x = (E(i, 2.2) - 0.5) * 2 * w, y = yBase - (yBase - yTop) * v;
+      const edge = Math.abs(x) / w, tex = noise(x / size * 4 + t * 0.03, y / size * 4);
+      const body = smooth(1 - (edge - 0.55) / 0.5 + (tex - 0.5) * 0.5);
+      if (body < 0.05) continue;
+      let lit = 0;
+      if (flash) { const dx = x - flash.x, dy = y - flash.y; lit = flash.I * Math.exp(-(dx * dx + dy * dy) / (2 * (0.3 * size) ** 2)); }
+      const heat = clamp01(0.2 + 0.2 * v + 0.9 * lit), a = body * cirrus * (0.26 + 0.14 * tex + 0.55 * lit);
+      dot(x, y, Math.max(rMin, rBase + rDepth * (0.3 + 0.7 * lit)), ink ? null : ramp(pal.ramp, heat), a, ink ? 0.6 * (1 - lit) : 0);
+    }
+    if (o.rain !== false) {
+      const nr = Math.round(N * 0.25), lit = flash ? flash.I * 0.5 : 0;
+      for (let i = 0; i < nr; i++) {
+        const x = (E(i, 8.8) - 0.5) * 2.2 * wBase, y = yBase + size * 0.01 + frac(E(i, 9.9) + t * 0.9) * size * 0.26;
+        dot(x, y, Math.max(rMin, 0.7 * M), pal.ramp[0], 0.22 + 0.4 * lit, ink ? 0.75 : 0);
+      }
+    }
+    if (bolt) {
+      bolt.forEach((path, b) => {
+        const main = b === 0, step = Math.max(1.5, 2.2 * M);
+        for (let j = 1; j < path.length; j++) {
+          const [ax, ay] = path[j - 1], [bx, by] = path[j], n = Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) / step));
+          for (let k = 0; k <= n; k++) { const f = k / n; dot(ax + (bx - ax) * f, ay + (by - ay) * f, Math.max(rMin, (main ? 1.3 : 0.8) * M), pal.ramp[2], flash.I * (main ? 1 : 0.55), 0); }
+        }
+      });
+    }
+    ctx.restore();
+    if (o.ground) paintRim(ctx, W, size);
+  }
+
   /* ================================================================== registry + driver */
   const MODES = {
-    cyclone: { draw: drawCyclone, defaults: CLOUD, state: 'spinning' }
+    cyclone: { draw: drawCyclone, defaults: CLOUD,   state: 'spinning' },
+    clouds:  { draw: drawClouds,  defaults: CUMULUS, state: 'drifting' },
+    storm:   { draw: drawStorm,   defaults: NIGHT,   state: 'flashing' }
   };
   const STATE_TO_MODE = Object.fromEntries(Object.entries(MODES).map(([m, v]) => [v.state, m]));
 
-  // Named storms: a mode plus the options that make it that particular event.
+  // Named events: a mode plus the options and palette that make it that particular thing.
   // <canvas class=wx data-wx-body=tracy>. Data attributes still override the body's options.
+  const P = (cold, mid, hot, glow) => ({ cold, mid, hot, glow });
   const S = { hemisphere: 'south' }, Nh = { hemisphere: 'north' };
   const BODIES = {
     // cyclones (Australia, the Pacific, the Indian Ocean)
@@ -165,13 +323,27 @@
     'dorian':   { mode: 'cyclone', opts: { ...Nh, cat: 5, eye: 0.08, bands: 3 } },
     // typhoons (the western Pacific)
     'haiyan':   { mode: 'cyclone', opts: { ...Nh, cat: 5, eye: 0.05, omega: 1.4, bands: 3 } },
-    'tip':      { mode: 'cyclone', opts: { ...Nh, cat: 5, eye: 0.06, bands: 4, pitch: 18 } }
+    'tip':      { mode: 'cyclone', opts: { ...Nh, cat: 5, eye: 0.06, bands: 4, pitch: 18 } },
+    // clouds
+    'cumulus':       { mode: 'clouds', opts: { form: 'puff', puffs: 3, sky: ['#274a86', '#12264d'] } },
+    'morning-glory': { mode: 'clouds', opts: { form: 'roll', radius: 0.19, spin: 0.4, sky: ['#3b2a48', '#0b0d1c'] },
+                       palette: P([90, 80, 110], [215, 190, 190], [255, 240, 225], [230, 150, 110]) },
+    'shelf-cloud':   { mode: 'clouds', opts: { form: 'roll', radius: 0.27, spin: 0.2, drift: 0.06, sky: ['#1a2230', '#05070c'] },
+                       palette: P([40, 50, 60], [120, 130, 140], [220, 225, 225], [90, 110, 120]) },
+    // thunderstorms
+    'thunderstorm': { mode: 'storm' },
+    'supercell':    { mode: 'storm', opts: { rate: 0.8, cg: 0.6, anvil: 1.25, tower: 1.08 } },
+    'hector':       { mode: 'storm', opts: { rate: 1.0, cg: 0.45, anvil: 1.15 } },
+    'catatumbo':    { mode: 'storm', opts: { rate: 1.8, cg: 0.2, sky: ['#0c1024', '#1a1430'] },
+                      palette: P([70, 60, 110], [160, 150, 200], [245, 240, 255], [170, 120, 255]) }
   };
-  // named storms by basin, in display order
+  // named events by family, in display order
   const GROUPS = {
     'Cyclones': ['tracy', 'yasi', 'larry', 'debbie', 'winston', 'freddy', 'alfred'],
     'Hurricanes': ['katrina', 'andrew', 'wilma', 'sandy', 'patricia', 'dorian'],
-    'Typhoons': ['haiyan', 'tip']
+    'Typhoons': ['haiyan', 'tip'],
+    'Clouds': ['cumulus', 'morning-glory', 'shelf-cloud'],
+    'Thunderstorms': ['thunderstorm', 'supercell', 'hector', 'catatumbo']
   };
 
   const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -181,11 +353,11 @@
     if (st === 'light') return false;
     return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
   };
-  const num = v => (v == null || v === '' ? undefined : Number(v));
+  const FLAGS = new Set(['wxBody', 'wxMode', 'wxState', 'wxReady', 'wxInk', 'wxLite', 'wxGround', 'wxGlow']);
 
   // Markup contract: <canvas class=wx width=200 height=200 data-wx-body=tracy> (or data-wx-mode=cyclone).
-  // Height is the preset; width lets a storm's outer bands stretch. Flags: data-wx-ink, -lite, -ground (=1),
-  // -glow (=0). Knobs: data-wx-hemisphere, -cat, -eye, -bands, -pitch, -reach, -omega. Colours via --wx-*.
+  // Height is the preset; width lets wide things stretch. Flags: data-wx-ink, -lite, -ground (=1), -glow (=0).
+  // Any other data-wx-<knob> reaches the mode as opts.knob, numbers parsed. Colours via --wx-* custom properties.
   function mount(canvas) {
     if (canvas.dataset.wxReady === '1') return;
     canvas.dataset.wxReady = '1';
@@ -200,10 +372,11 @@
     canvas.style.width = w + 'px'; canvas.style.height = size + 'px';
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const ds = canvas.dataset;
-    const own = { cat: num(ds.wxCat), eye: num(ds.wxEye), bands: num(ds.wxBands), pitch: num(ds.wxPitch),
-                  reach: num(ds.wxReach), omega: num(ds.wxOmega), hemisphere: ds.wxHemisphere };
-    for (const k in own) if (own[k] === undefined) delete own[k];
+    const ds = canvas.dataset, own = {};
+    for (const k in ds) {
+      if (!k.startsWith('wx') || FLAGS.has(k) || ds[k] === '') continue;
+      own[k[2].toLowerCase() + k.slice(3)] = isNaN(ds[k]) ? ds[k] : Number(ds[k]);
+    }
     const opts = { ...(body ? body.opts : null), ...own, w, ink: ds.wxInk === '1', lite: ds.wxLite === '1', ground: ds.wxGround === '1', glow: ds.wxGlow !== '0' };
     const paint = t => {
       opts.palette = readPalette(canvas, defaults) || (body && body.palette) || null;
@@ -221,7 +394,7 @@
     const start = () => { if (!running) { running = true; raf = requestAnimationFrame(tick); } };
     const stop = () => { running = false; cancelAnimationFrame(raf); };
     paint(0);
-    if (typeof IntersectionObserver !== 'undefined') {   // no rAF for storms scrolled off or on hidden tabs
+    if (typeof IntersectionObserver !== 'undefined') {   // no rAF for canvases scrolled off or on hidden tabs
       new IntersectionObserver(([e]) => {
         visible = e.isIntersecting;
         (visible && document.visibilityState !== 'hidden') ? start() : stop();
@@ -237,15 +410,15 @@
   }
 
   return {
-    version: '0.1.0',
+    version: '0.2.0',
     register, mount, MODES, STATE_TO_MODE, BODIES, GROUPS,
     draw: (mode, ctx, size, t, dark, opts) => MODES[mode].draw(ctx, size, t, dark, opts),
-    // draw a named storm: Coriolis.body('yasi', ctx, 64, t, dark, { lite: true })
+    // draw a named event: Coriolis.body('yasi', ctx, 64, t, dark, { lite: true })
     body: (name, ctx, size, t, dark, opts) => {
       const b = BODIES[name]; if (!b) throw new Error('coriolis: unknown body ' + name);
       return MODES[b.mode].draw(ctx, size, t, dark, { ...b.opts, palette: b.palette || null, ...opts });
     },
     palette: { keys: KEYS, build: buildPal, read: readPalette, parse: parseCol, ramp },
-    _: { E, noise, paintSea, paintRim, dotPainter }
+    _: { E, fib, noise, paintPill, paintRim, dotPainter }
   };
 });

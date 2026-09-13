@@ -60,7 +60,7 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
 
   <h2>Use it</h2>
   <p class="sub">One script, then a canvas per storm. Height is the size; a wider canvas gives the outer bands room.</p>
-  <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.7.0/dist/coriolis.min.js"&gt;&lt;/script&gt;
+  <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.8.0/dist/coriolis.min.js"&gt;&lt;/script&gt;
 &lt;canvas class="wx" width="200" height="200" data-wx-body="tracy"&gt;&lt;/canvas&gt;</code></pre>
   <table>
     <tr><th>attribute</th><th>value</th><th>what it does</th></tr>
@@ -154,7 +154,15 @@ const META = {
   'trade-winds': 'steady from one quarter, day after day',
   gale: 'churning, gusting',
   'jet-stream': 'a fast meandering core across the middle',
-  'southerly-buster': 'a line of strong wind sweeping through'
+  'southerly-buster': 'a line of strong wind sweeping through',
+  halo: 'the 22° ring, red inside and white out, patchy with the cirrus',
+  'sun-dogs': 'bright patches either side of the sun on its own level',
+  'moon-halo': 'the same ring round the moon, faint and colourless',
+  'full-display': 'sun dogs, the tangent arc and the parhelic circle all at once',
+  fog: 'a thin sheet over the ground, wisps lifting off it',
+  'sea-fog': 'a bank with a front, rolling in and back',
+  'valley-fog': 'pooled low, with a rolling top',
+  'pea-souper': 'thick and yellow, the old London kind'
 };
 const SUB = { Cyclones: 'South of the equator. Clockwise.', Hurricanes: 'The Atlantic and eastern Pacific. Anticlockwise.', Typhoons: 'The western Pacific. Anticlockwise.',
   Clouds: 'From the side. Puffs tumble forward; a roll cloud turns about its own axis.', Thunderstorms: 'At night. Each flash is on a schedule hashed from the clock, so a still frame works too.',
@@ -162,8 +170,9 @@ const SUB = { Cyclones: 'South of the equator. Clockwise.', Hurricanes: 'The Atl
   Tornadoes: 'From the side. Dots ride round the funnel, fastest where it is narrow.',
   Aurora: 'Curtains across the sky, brightest along the lower edge, rays shimmering above.',
   'Rain and snow': 'Every drop has its own depth: the near ones are bigger and fall faster.',
-  Dust: 'A wall rolling in, or the murk the day after.', Wind: 'Streaks riding a flow field, coloured by speed, the way a wind map does.' };
-const WIDE = { Clouds: 1, Thunderstorms: 1, Lightning: 1, Aurora: 1, 'Rain and snow': 1, Dust: 1, Wind: 1 };
+  Dust: 'A wall rolling in, or the murk the day after.', Wind: 'Streaks riding a flow field, coloured by speed, the way a wind map does.',
+  Halos: 'Ice in high cloud bending the light: the ring, the dogs, the arcs.', Fog: 'Soft wide dots, thick where the noise says thick, lit from above.' };
+const WIDE = { Clouds: 1, Thunderstorms: 1, Lightning: 1, Aurora: 1, 'Rain and snow': 1, Dust: 1, Wind: 1, Halos: 1, Fog: 1 };
 const nice = s => s[0].toUpperCase() + s.slice(1);
 const cell = (attrs, nm, meta, wide) => `<div class="cell"><canvas class="wx" width="${wide ? 220 : 150}" height="${wide ? 140 : 150}" ${attrs}></canvas><div class="nm">${nm}</div><div class="meta">${meta}</div></div>`;
 let h = '';

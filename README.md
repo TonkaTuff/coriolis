@@ -7,7 +7,7 @@ Sister library to [Ephemeris](https://github.com/TonkaTuff/ephemeris), and the d
 ## Use it
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.7.0/dist/coriolis.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.8.0/dist/coriolis.min.js"></script>
 <canvas class="wx" width="200" height="200" data-wx-body="tracy"></canvas>
 ```
 
@@ -76,6 +76,14 @@ One event at a time, if that's all you need: `dist/<name>.min.js` is the core pl
 | | `gale` | churning and gusting |
 | | `jet-stream` | a fast meandering core across the middle |
 | | `southerly-buster` | a line of strong wind sweeping through |
+| Halos | `halo` | the 22° ring round the sun, red inside and white out, patchy with the cirrus |
+| | `sun-dogs` | bright patches either side of the sun on its own level |
+| | `moon-halo` | the same ring round the moon, faint and colourless |
+| | `full-display` | sun dogs, the upper tangent arc and the parhelic circle all at once |
+| Fog | `fog` | a thin sheet over the ground, wisps lifting off it |
+| | `sea-fog` | a bank with a front, rolling in and back |
+| | `valley-fog` | pooled low, with a rolling top |
+| | `pea-souper` | thick and yellow, the old London kind |
 
 Cyclones spin clockwise, hurricanes and typhoons anticlockwise. That's the Coriolis effect, and the library's name.
 

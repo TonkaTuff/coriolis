@@ -1,4 +1,4 @@
-/*! coriolis 0.7.0 — weather events, drawn as dots. Canvas 2D, no dependencies. MIT. */
+/*! coriolis 0.8.0 — weather events, drawn as dots. Canvas 2D, no dependencies. MIT. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.Coriolis = factory();
@@ -738,6 +738,103 @@
     if (o.ground) paintRim(ctx, W, size);
   }
 
+  /* ================================================================== halo */
+  // Ice in high cloud, and the light it bends: the 22° halo round the sun or moon, red on the inside
+  // and white outside, patchy where the cirrus is thin; sun dogs either side on the level of the
+  // sun; the upper tangent arc riding on top; and, in a full display, the parhelic circle running
+  // right round the sky. Crystals glint all through it.
+  const ICE = { cold: [255, 190, 150], mid: [235, 240, 250], hot: [255, 255, 255], glow: [210, 220, 245] };
+  const HIGHSKY = ['#1c3a6e', '#3e6aa8'];
+  function drawHalo(ctx, size, t, dark, o = {}) {
+    const W = o.w ?? size, half = size / 2, cx = W / 2;
+    const ink = !!o.ink, pal = buildPal(o.palette || ICE);
+    const M = radiusScale(size), lite = o.lite ? 0.5 : 1, rMin = 0.3;
+    const dot = dotPainter(ctx, ink, dark);
+    const T = t * (o.tempo ?? 1), moon = o.form === 'moon', full = o.form === 'full', dogs = o.dogs ?? (moon ? 0.3 : 1);
+    const R = size * (o.reach ?? 0.3), sy = -size * 0.04, N = Math.round((o.n ?? 700) * countScale(size, 1.2, 14) * lite * (ink ? 0.6 : 1));
+    const col = h => ink ? null : ramp(pal.ramp, h), dim = moon ? 0.6 : 1;
+    ctx.save();
+    if (o.ground) paintPill(ctx, W, size, (o.sky || (moon ? DUSK : HIGHSKY))[0], (o.sky || (moon ? DUSK : HIGHSKY))[1]);
+    ctx.translate(cx, half);
+    ctx.globalCompositeOperation = ink ? 'source-over' : 'lighter';
+    if (!ink && o.glow !== false) {
+      const g = ctx.createRadialGradient(0, sy, 0, 0, sy, R * 0.5);
+      g.addColorStop(0, rgba(pal.ramp[2], 0.9 * dim)); g.addColorStop(0.25, rgba(pal.glow, 0.35 * dim)); g.addColorStop(1, rgba(pal.glow, 0));
+      ctx.fillStyle = g; ctx.fillRect(-W, -size, 2 * W, 2 * size);
+    }
+    // the sun or moon itself
+    for (let i = 0; i < Math.round(30 * countScale(size, 1, 6)); i++) { const a = E(i, 1.1) * TAU, r = Math.sqrt(E(i, 2.2)) * size * 0.035; dot(Math.cos(a) * r, sy + Math.sin(a) * r, Math.max(rMin, M * 0.8), col(1), 0.9 * dim, 0); }
+    // the 22° halo: a soft ring, red inside, patchy with the cloud
+    for (let i = 0; i < N; i++) {
+      const a = E(i, 3.3) * TAU, off = (E(i, 4.4) - 0.3) * 0.16, r = R * (1 + off);
+      const cloud = 0.35 + 0.65 * noise(Math.cos(a) * 2 + 5, Math.sin(a) * 2 + T * 0.06);
+      const heat = off < 0 ? 0.15 : Math.min(1, 0.45 + off * 4);   // red edge inside, white and then blue-white out
+      dot(Math.cos(a) * r, sy + Math.sin(a) * r, Math.max(rMin, M * 0.7), col(heat), (0.25 + 0.55 * cloud) * (1 - Math.abs(off) * 4) * dim, ink ? 0.25 + 0.5 * Math.abs(off) * 4 : 0);
+    }
+    // sun dogs: bright patches on the level of the sun, red toward it, drawn out away from it
+    if (dogs > 0) for (const s of [-1, 1]) for (let i = 0; i < Math.round(N * 0.12); i++) {
+      const u = E(i, 5.5) ** 0.7, v = (E(i, 6.6) - 0.5) * 2, x = s * R * (0.98 + u * 0.25), y = sy + v * R * 0.09 * (1 - u * 0.5);
+      dot(x, y, Math.max(rMin, M * 0.8), col(0.2 + 0.8 * u), (0.9 - 0.7 * u) * (1 - v * v) * dogs * dim, ink ? 0.1 + 0.5 * u : 0);
+    }
+    // the upper tangent arc, curving up off the top of the halo; the parhelic circle in a full display
+    for (let i = 0; i < Math.round(N * 0.18); i++) {
+      const x = (E(i, 7.7) - 0.5) * 2 * R * 0.85, y = sy - R - (x * x) / (R * 1.6) + (E(i, 8.8) - 0.5) * R * 0.05;
+      dot(x, y, Math.max(rMin, M * 0.65), col(0.75), 0.5 * (1 - Math.abs(x) / (R * 0.9)) * dim, ink ? 0.3 : 0);
+    }
+    if (full) for (let i = 0; i < Math.round(N * 0.25); i++) {
+      const x = (E(i, 9.9) - 0.5) * W * 1.1, y = sy + (E(i, 1.9) - 0.5) * R * 0.04;
+      dot(x, y, Math.max(rMin, M * 0.55), col(0.8), 0.3 * (0.5 + 0.5 * noise(x / size * 3, T * 0.1)) * dim, ink ? 0.4 : 0);
+    }
+    // crystals glinting
+    for (let i = 0; i < Math.round(N * 0.15); i++) {
+      const x = (E(i, 2.9) - 0.5) * W, y = (E(i, 3.9) - 0.5) * size, tw = Math.max(0, Math.sin(T * 5 + i * 2.3) - 0.8) / 0.2;
+      dot(x, y, Math.max(rMin, M * 0.5), col(1), 0.5 * tw * dim, ink ? 0.1 : 0);
+    }
+    ctx.restore();
+    if (o.ground) paintRim(ctx, W, size);
+  }
+
+  /* ================================================================== fog */
+  // Fog: soft wide dots drifting through, thick where the noise says thick and thin where it says
+  // thin, lit from above so the top of the bank is brighter than its belly. A sea fog rolls in as a
+  // bank with a front; valley fog pools low with a rolling top; ground fog is a thin sheet with
+  // wisps lifting off it.
+  const FOG = { cold: [70, 80, 95], mid: [160, 170, 185], hot: [230, 235, 240], glow: [150, 160, 180] };
+  const FOGSKY = ['#2a3242', '#0c1018'];
+  function drawFog(ctx, size, t, dark, o = {}) {
+    const W = o.w ?? size, half = size / 2, cx = W / 2;
+    const ink = !!o.ink, pal = buildPal(o.palette || FOG);
+    const M = radiusScale(size), lite = o.lite ? 0.5 : 1, rMin = 0.3;
+    const dot = dotPainter(ctx, ink, dark);
+    const T = t * (o.tempo ?? 1), form = o.form || 'bank', N = Math.round((o.n ?? 600) * countScale(size, 1.2, 14) * Math.sqrt(W / size) * lite * (ink ? 0.6 : 1));
+    const thick = o.thick ?? 1, drift = o.drift ?? 1;
+    // the top of the fog, as a function of where along the canvas and when
+    const top = x => form === 'valley' ? half + size * 0.05 + (noise(x / size * 1.2 + 3, T * 0.05) - 0.5) * size * 0.25
+                   : form === 'ground' ? half + size * 0.25 + (noise(x / size * 2, T * 0.08) - 0.5) * size * 0.08
+                   : half - size * 0.15 + (noise(x / size + 1, T * 0.04) - 0.5) * size * 0.3;
+    const front = form === 'bank' ? W * (0.15 + 0.35 * Math.sin(T * 0.07)) : W;   // a sea fog's leading edge comes and goes
+    ctx.save();
+    if (o.ground) paintPill(ctx, W, size, (o.sky || FOGSKY)[0], (o.sky || FOGSKY)[1]);
+    ctx.translate(cx, 0);
+    ctx.globalCompositeOperation = ink ? 'source-over' : 'lighter';
+    if (!ink && o.glow !== false) {
+      const g = ctx.createLinearGradient(0, half - size * 0.2, 0, size);
+      g.addColorStop(0, rgba(pal.glow, 0)); g.addColorStop(0.5, rgba(pal.glow, 0.18 * thick)); g.addColorStop(1, rgba(pal.glow, 0.1 * thick));
+      ctx.fillStyle = g; ctx.fillRect(-W, half - size * 0.2, 2 * W, size);
+    }
+    for (let i = 0; i < N; i++) {
+      const x = (frac(E(i, 1.1) + T * 0.012 * drift * (0.6 + 0.8 * E(i, 2.2))) - 0.5) * W * 1.1, y = half + (E(i, 3.3) - 0.5) * size * 0.95;
+      const edge = top(x), below = smooth((y - edge) / (size * 0.12)), inside = form === 'bank' ? smooth((front - x) / (size * 0.2)) : 1;
+      const dens = noise(x / size * 1.6 + T * 0.03, y / size * 2.4 - T * 0.02);
+      let a = (0.04 + 0.16 * dens) * thick * (0.15 + 0.85 * below) * inside;
+      if (form === 'ground' && y < edge) a *= 0.5;   // wisps above the sheet
+      const lit = clamp01(1 - (y - edge) / (size * 0.5));   // brighter at the top of the bank
+      dot(x, y, Math.max(rMin, M * (2 + 3 * E(i, 4.4)) * (0.7 + 0.5 * below)), ink ? null : ramp(pal.ramp, 0.3 + 0.55 * lit), a, ink ? 0.6 + 0.3 * (1 - lit) : 0);
+    }
+    ctx.restore();
+    if (o.ground) paintRim(ctx, W, size);
+  }
+
   /* ================================================================== registry + driver */
   const MODES = {
     cyclone: { draw: drawCyclone, defaults: CLOUD,   state: 'spinning' },
@@ -748,7 +845,9 @@
     aurora:  { draw: drawAurora,  defaults: AURORA, state: 'glowing' },
     precip:  { draw: drawPrecip,  defaults: RAINY,  state: 'falling' },
     dust:    { draw: drawDust,    defaults: OCHRE,  state: 'choking' },
-    wind:    { draw: drawWind,    defaults: BREEZE, state: 'blowing' }
+    wind:    { draw: drawWind,    defaults: BREEZE, state: 'blowing' },
+    halo:    { draw: drawHalo,    defaults: ICE,    state: 'refracting' },
+    fog:     { draw: drawFog,     defaults: FOG,    state: 'shrouding' }
   };
   const STATE_TO_MODE = Object.fromEntries(Object.entries(MODES).map(([m, v]) => [v.state, m]));
 
@@ -828,7 +927,17 @@
     'trade-winds':      { mode: 'wind', opts: { speed: 1, churn: 0.35, sky: ['#0f1a2a', '#0a1220'] } },
     'gale':             { mode: 'wind', opts: { form: 'gusty', speed: 1.6, sky: ['#141a26', '#0a0e16'] } },
     'jet-stream':       { mode: 'wind', opts: { form: 'jet', sky: ['#0f1a2a', '#0a1220'] } },
-    'southerly-buster': { mode: 'wind', opts: { form: 'front', sky: ['#0f1a2a', '#0a1220'] } }
+    'southerly-buster': { mode: 'wind', opts: { form: 'front', sky: ['#0f1a2a', '#0a1220'] } },
+    // halos
+    'halo':         { mode: 'halo' },
+    'sun-dogs':     { mode: 'halo', opts: { dogs: 1.6, reach: 0.32 } },
+    'moon-halo':    { mode: 'halo', opts: { form: 'moon' }, palette: P([200, 190, 210], [225, 228, 240], [255, 255, 255], [180, 190, 230]) },
+    'full-display': { mode: 'halo', opts: { form: 'full', dogs: 1.3, reach: 0.28 } },
+    // fog
+    'fog':        { mode: 'fog', opts: { form: 'ground', thick: 1.1 } },
+    'sea-fog':    { mode: 'fog', opts: { form: 'bank', thick: 1.2, drift: 1.4 } },
+    'valley-fog': { mode: 'fog', opts: { form: 'valley', thick: 1.3, drift: 0.5 } },
+    'pea-souper': { mode: 'fog', opts: { form: 'valley', thick: 1.8, drift: 0.7, sky: ['#3a3424', '#141008'] }, palette: P([90, 80, 55], [170, 155, 115], [225, 215, 180], [160, 145, 100]) }
   };
   // named events by family, in display order
   const GROUPS = {
@@ -842,7 +951,9 @@
     'Aurora': ['aurora-australis', 'aurora-borealis', 'carrington', 'may-2024'],
     'Rain and snow': ['rain', 'drizzle', 'monsoon', 'snow', 'blizzard', 'hail'],
     'Dust': ['haboob', 'red-dawn'],
-    'Wind': ['breeze', 'trade-winds', 'gale', 'jet-stream', 'southerly-buster']
+    'Wind': ['breeze', 'trade-winds', 'gale', 'jet-stream', 'southerly-buster'],
+    'Halos': ['halo', 'sun-dogs', 'moon-halo', 'full-display'],
+    'Fog': ['fog', 'sea-fog', 'valley-fog', 'pea-souper']
   };
 
   const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -909,7 +1020,7 @@
   }
 
   return {
-    version: '0.7.0',
+    version: '0.8.0',
     register, mount, MODES, STATE_TO_MODE, BODIES, GROUPS,
     draw: (mode, ctx, size, t, dark, opts) => MODES[mode].draw(ctx, size, t, dark, opts),
     // draw a named event: Coriolis.body('yasi', ctx, 64, t, dark, { lite: true })

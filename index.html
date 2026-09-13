@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Coriolis</title>
+<meta name="description" content="Weather events, drawn as dots on one canvas. Named cyclones, hurricanes and typhoons that spin the right way for their hemisphere. No dependencies, one script.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%230a0c11'/%3E%3Cpath d='M16 16m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M16 4c7 0 11 5 11 11M16 28C9 28 5 23 5 17' fill='none' stroke='%23fac800' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--ground:#0a0c11;--panel:#12151c;--ink:#e9ecf1;--ink-2:#a3aab6;--ink-3:#6e7583;--line:#232833;--amber:#fac800}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:Manrope,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+header{padding:56px 0 20px;text-align:center}
+.eyebrow{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;color:var(--amber);letter-spacing:.06em;text-transform:uppercase}
+h1{margin:10px 0 8px;font-size:clamp(34px,5vw,54px);letter-spacing:-.03em;line-height:1.05;text-wrap:balance}
+.lede{margin:0 auto;max-width:62ch;color:var(--ink-2);text-wrap:balance}
+.hero{display:flex;justify-content:center;margin:28px 0 8px}
+.hero canvas{max-width:100%;height:auto!important}
+h2{margin:44px 0 4px;font-size:22px;letter-spacing:-.02em}
+.sub{margin:0 0 16px;color:var(--ink-3);font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}
+.cell{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 12px 10px;text-align:center}
+.cell canvas{display:block;margin:0 auto;max-width:100%}
+.nm{margin-top:8px;font-weight:700;font-size:14px}
+.meta{font-size:12px;color:var(--ink-3);line-height:1.35;text-wrap:balance}
+pre{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;overflow-x:auto;font:13px/1.55 "IBM Plex Mono",ui-monospace,monospace;color:var(--ink-2);margin:0}
+table{border-collapse:collapse;font-size:14px;width:100%;margin-top:6px}
+td,th{text-align:left;padding:7px 12px 7px 0;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--ink-3);font-weight:600;font-size:13px}
+td:first-child{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;white-space:nowrap}
+footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
+</style>
+</head>
+<body>
+<header class="wrap">
+  <div class="eyebrow" id="eyebrow">coriolis</div>
+  <h1>Weather events, drawn as dots.</h1>
+  <p class="lede">Named cyclones, hurricanes and typhoons as the satellite sees them: an eye, an eyewall, and rainbands spiralling in. Each one spins the right way for its hemisphere. No dependencies, one script.</p>
+  <div class="hero"><canvas class="wx" width="720" height="360" data-wx-body="yasi" data-wx-ground="1"></canvas></div>
+</header>
+
+<main class="wrap">
+  <div id="groups"></div>
+
+  <h2>Flags</h2>
+  <p class="sub">The same storm four ways. They stack.</p>
+  <div class="grid" id="flags"></div>
+
+  <h2>Use it</h2>
+  <p class="sub">One script, then a canvas per storm. Height is the size; a wider canvas gives the outer bands room.</p>
+  <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.1.0/dist/coriolis.min.js"&gt;&lt;/script&gt;
+&lt;canvas class="wx" width="200" height="200" data-wx-body="tracy"&gt;&lt;/canvas&gt;</code></pre>
+  <table>
+    <tr><th>attribute</th><th>value</th><th>what it does</th></tr>
+    <tr><td>data-wx-body</td><td>storm</td><td>any name above</td></tr>
+    <tr><td>data-wx-hemisphere</td><td>north, south</td><td>south spins clockwise</td></tr>
+    <tr><td>data-wx-cat</td><td>1–5</td><td>how organised: 5 has a pinhole eye and crisp bands, 1 is a ragged lump thrown to one side</td></tr>
+    <tr><td>data-wx-eye</td><td>number</td><td>eye radius as a fraction of the storm, 0 for none</td></tr>
+    <tr><td>data-wx-bands</td><td>number</td><td>rainbands, 2 to 4</td></tr>
+    <tr><td>data-wx-pitch</td><td>degrees</td><td>inflow angle, 22 by default; lower winds the bands tighter</td></tr>
+    <tr><td>data-wx-reach</td><td>number</td><td>storm size relative to the canvas, 1 fills it</td></tr>
+    <tr><td>data-wx-omega</td><td>number</td><td>wind at the eyewall, radians a second</td></tr>
+    <tr><td>data-wx-ink / -lite / -ground</td><td>1</td><td>monochrome dots that follow the page theme · half the dots · dark sea under the cloud</td></tr>
+    <tr><td>data-wx-glow</td><td>0</td><td>no soft glow under the core, just the dots on a clear canvas</td></tr>
+  </table>
+</main>
+
+<footer class="wrap">MIT. <a href="https://github.com/TonkaTuff/coriolis">GitHub</a> · a <a href="https://tonkatuff.com">TonkaTuff</a> library, sister to <a href="https://github.com/TonkaTuff/ephemeris">Ephemeris</a>.</footer>
+
+<script src="dist/coriolis.min.js"></script>
+<script>
+const META = {
+  tracy: '1974 · Darwin · category 4, one of the smallest on record',
+  yasi: '2011 · Queensland · category 5, enormous',
+  larry: '2006 · Queensland · category 4',
+  debbie: '2017 · Queensland · category 4, wide eye',
+  winston: '2016 · Fiji · category 5, strongest landfall in the south',
+  freddy: '2023 · Mozambique · the longest-lived on record',
+  alfred: '2025 · Queensland · category 2, ragged and lopsided',
+  katrina: '2005 · Gulf of Mexico · category 5 at sea',
+  andrew: '1992 · Florida · category 5, compact',
+  wilma: '2005 · Caribbean · the smallest eye ever measured',
+  sandy: '2012 · US east coast · huge, no eye, half winter storm',
+  patricia: '2015 · eastern Pacific · strongest winds measured, pinhole eye',
+  dorian: '2019 · Bahamas · category 5, a textbook eye',
+  haiyan: '2013 · Philippines · category 5',
+  tip: '1979 · western Pacific · the largest storm ever recorded'
+};
+const SUB = { Cyclones: 'South of the equator. Clockwise.', Hurricanes: 'The Atlantic and eastern Pacific. Anticlockwise.', Typhoons: 'The western Pacific. Anticlockwise.' };
+const nice = s => s[0].toUpperCase() + s.slice(1);
+const cell = (attrs, nm, meta) => `<div class="cell"><canvas class="wx" width="150" height="150" ${attrs}></canvas><div class="nm">${nm}</div><div class="meta">${meta}</div></div>`;
+let h = '';
+for (const [grp, names] of Object.entries(Coriolis.GROUPS)) {
+  h += `<h2>${grp}</h2><p class="sub">${SUB[grp]}</p><div class="grid">`;
+  for (const n of names) h += cell(`data-wx-body="${n}"`, nice(n), META[n]);
+  h += '</div>';
+}
+document.getElementById('groups').innerHTML = h;
+document.getElementById('flags').innerHTML =
+  cell('data-wx-body="katrina"', 'plain', 'no flags') +
+  cell('data-wx-body="katrina" data-wx-ink="1"', 'ink', 'data-wx-ink=1') +
+  cell('data-wx-body="katrina" data-wx-ground="1"', 'ground', 'data-wx-ground=1') +
+  cell('data-wx-body="katrina" data-wx-glow="0"', 'no glow', 'data-wx-glow=0 · dots only');
+document.getElementById('eyebrow').textContent = 'coriolis ' + Coriolis.version + ' · weather stipple';
+Coriolis.register();
+</script>
+</body>
+</html>

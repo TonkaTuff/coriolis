@@ -1,13 +1,13 @@
 # Coriolis
 
-Weather events, drawn as dots. Cyclones as the satellite sees them, an eye, an eyewall and rainbands spiralling in, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit from inside by their own lightning, and lightning on its own: fork, sheet, crawler and ball. Twenty-seven named events. Canvas 2D, no dependencies, one script.
+Weather events, drawn as dots. Cyclones as the satellite sees them, an eye, an eyewall and rainbands spiralling in, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit from inside by their own lightning, lightning on its own, and tornadoes from rope to wedge. Thirty-five named events. Canvas 2D, no dependencies, one script.
 
 Sister library to [Ephemeris](https://github.com/TonkaTuff/ephemeris), and the dots are sized to match, so the two sit together on a page.
 
 ## Use it
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.3.0/dist/coriolis.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.4.0/dist/coriolis.min.js"></script>
 <canvas class="wx" width="200" height="200" data-wx-body="tracy"></canvas>
 ```
 
@@ -46,6 +46,14 @@ One event at a time, if that's all you need: `dist/<name>.min.js` is the core pl
 | | `sheet-lightning` | a cloud lit from inside, no channel to see |
 | | `ball-lightning` | a glowing sphere that swells in, drifts, pulses, sheds sparks and bursts |
 | | `megaflash` | the 2020 record, 768 km from Texas to Mississippi, as a long crawler |
+| Tornadoes | `tornado` | a funnel from the cloud base to the ground, snaking as it goes, dust at its foot |
+| | `el-reno` | 2013, Oklahoma. 4.2 km wide, the widest on record, with sub-vortices inside |
+| | `tri-state` | 1925, Missouri to Indiana. 350 km, the longest track on record |
+| | `joplin` | 2011, Missouri. EF5, multiple vortices |
+| | `bridge-creek` | 1999, Oklahoma. 486 km/h, the fastest wind ever measured |
+| | `waterspout` | a thin funnel over the sea, spray at its foot |
+| | `dust-devil` | no cloud: a column of dust, widest at the ground |
+| | `fire-whirl` | a vortex of flame and embers |
 
 Cyclones spin clockwise, hurricanes and typhoons anticlockwise. That's the Coriolis effect, and the library's name.
 
@@ -74,6 +82,13 @@ Cyclones spin clockwise, hurricanes and typhoons anticlockwise. That's the Corio
 | `data-wx-branches` | number | lightning: forks off the channel, 6 by default |
 | `data-wx-life` | seconds | ball lightning: one life, 8 by default |
 | `data-wx-rate` | number | lightning too: strikes a second, 0.7 by default |
+| `data-wx-form` | `tornado`, `waterspout`, `dust-devil`, `fire-whirl` | tornado: a funnel with dust, one with spray, a column of dust with no cloud, or a vortex of embers |
+| `data-wx-width` | number | tornado: width as a fraction of the height, 0.16 by default |
+| `data-wx-taper` | number | tornado: 2 is a rope, 0.3 a wedge; 1.4 by default |
+| `data-wx-sway` | number | tornado: how far the foot wanders, 0.12 by default |
+| `data-wx-vortices` | number | tornado: sub-vortices orbiting inside, 1 by default |
+| `data-wx-debris` | 0–1 | tornado: dust as a share of the dots, 0.4 by default |
+| `data-wx-spin` | number | tornado too: turns a second at the base, 2.2 by default |
 | `data-wx-ink` | `1` | monochrome dots that follow the page theme |
 | `data-wx-lite` | `1` | half the dots |
 | `data-wx-ground` | `1` | a pill of sea or sky behind it; each event brings its own, or pass `sky: ['#top', '#bottom']` in JavaScript |

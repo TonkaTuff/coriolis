@@ -1,4 +1,4 @@
-/*! coriolis 0.3.0 — weather events, drawn as dots. Canvas 2D, no dependencies. MIT. */
+/*! coriolis 0.4.0 — weather events, drawn as dots. Canvas 2D, no dependencies. MIT. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.Coriolis = factory();
@@ -412,12 +412,83 @@
     if (o.ground) paintRim(ctx, W, size);
   }
 
+  /* ================================================================== tornado */
+  // A tornado from the side: a condensation funnel from the cloud base to the ground, dots riding
+  // round it so the spin reads, faster where it's narrow, the whole thing snaking as it goes, and a
+  // debris cloud thrown up where it meets the ground. `width` and `taper` shape it from rope to
+  // wedge; `vortices` splits it into sub-vortices orbiting inside. Forms: 'tornado', 'waterspout'
+  // (spray, not dust), 'dust-devil' (no cloud, a column of dust widest at the ground), 'fire-whirl'
+  // (embers, rising).
+  const FUNNEL = { cold: [60, 62, 75], mid: [150, 150, 160], hot: [225, 225, 230], glow: [120, 120, 140] };
+  const DUST = [150, 115, 80];
+  function drawTornado(ctx, size, t, dark, o = {}) {
+    const W = o.w ?? size, half = size / 2, cx = W / 2;
+    const form = o.form || 'tornado', devil = form === 'dust-devil', spout = form === 'waterspout', fire = form === 'fire-whirl';
+    const ink = !!o.ink, pal = buildPal(o.palette || FUNNEL);
+    const M = radiusScale(size), lite = o.lite ? 0.5 : 1, rMin = 0.3;
+    const dot = dotPainter(ctx, ink, dark);
+    const yG = size * 0.4, yB = -size * 0.36, H = yG - yB;          // the ground and the cloud base
+    const R0 = size * (o.width ?? 0.16), taper = o.taper ?? 1.4;
+    const prof = v => devil ? R0 * (0.25 + 0.75 * (1 - v) ** 1.2) : R0 * (0.1 + 0.9 * v ** taper);   // radius at height v, 0 ground to 1 base
+    const spin = o.spin ?? 2.2, sway = o.sway ?? 0.12, nv = o.vortices ?? 1;
+    const xc = v => sway * size * (noise(v * 1.5 + t * 0.22, 3.3) - 0.5) * 2 * (devil ? v : (1 - v) ** 0.7);   // snakes, pinned at the cloud
+    const N = Math.round((o.n ?? 900) * countScale(size, 1.3, 20) * lite * (ink ? 0.4 : 1));
+    const rBase = (o.rBase ?? (ink ? 1.2 : 0.95)) * M, rDepth = (o.rDepth ?? 1.1) * M;
+    const dustCol = spout ? [200, 225, 245] : fire ? [255, 150, 60] : DUST;
+    const funnelRamp = fire ? [[120, 30, 10], [255, 120, 40], [255, 230, 170]] : devil ? [[80, 60, 40], DUST, [230, 205, 170]] : pal.ramp;
+
+    ctx.save();
+    if (o.ground) paintPill(ctx, W, size, (o.sky || DUSK)[0], (o.sky || DUSK)[1]);
+    ctx.translate(cx, half);
+    ctx.globalCompositeOperation = ink ? 'source-over' : 'lighter';
+    if (!ink && o.glow !== false) {   // the debris cloud's haze, or a fire whirl's light
+      const gx = xc(0), gy = yG - size * 0.05, gc = fire ? [255, 140, 50] : pal.glow;
+      const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, size * 0.35);
+      g.addColorStop(0, rgba(gc, fire ? 0.45 : 0.25)); g.addColorStop(1, rgba(gc, 0));
+      ctx.fillStyle = g; ctx.fillRect(-W, -size, 2 * W, 2 * size);
+    }
+    if (!devil) {   // the cloud base: a dark band with a ragged underside, lowest around the funnel
+      const nc = Math.round(N * 0.35);
+      for (let i = 0; i < nc; i++) {
+        const x = (E(i, 6.6) - 0.5) * 1.05 * W, d = E(i, 7.7);
+        const bulge = Math.exp(-(x * x) / (2 * (R0 * 1.8) ** 2)) * size * 0.08;   // the wall cloud
+        const y = -size * 0.5 + (yB + size * 0.5 + bulge) * d ** 0.6 + (noise(x / size * 4 + 2, d * 3 + t * 0.03) - 0.5) * size * 0.1;
+        const tex = noise(x / size * 6, y / size * 6 + 9);
+        dot(x, y, Math.max(rMin, 0.9 * M), ink ? null : ramp(pal.ramp, 0.12 + 0.15 * d), 0.22 + 0.16 * tex, ink ? 0.7 : 0);
+      }
+    }
+    // the funnel: dots ride round it and creep up; sub-vortices orbit the axis
+    const nf = Math.round(N * (devil ? 0.55 : 0.5));
+    for (let i = 0; i < nf; i++) {
+      const v = frac(E(i, 1.1) + t * (fire ? 0.12 : 0.04)), r = prof(v), k = i % nv;
+      const w = spin / (0.35 + r / R0);                                // faster where it's narrow
+      const ph = E(i, 2.2) * TAU + w * t;
+      let ax = xc(v), rr = r;
+      if (nv > 1) { const oa = k / nv * TAU + t * spin * 0.6; ax += Math.cos(oa) * r * 0.55; rr = r * 0.4; }   // a sub-vortex
+      const x = ax + Math.cos(ph) * rr * (1 + 0.12 * (noise(v * 6 + i * 0.001, t * 0.5) - 0.5)), y = yG - v * H, z = Math.sin(ph);
+      const front = clamp01(0.5 + 0.5 * z), heat = clamp01((fire ? 0.6 : 0.18) + (fire ? 0.45 : 0.38) * front + (fire ? 0.3 * (1 - v) : 0.12 * v));
+      const a = (0.12 + 0.48 * front) * (devil ? 0.8 : 1) * (fire ? 0.6 + 0.4 * (1 - v) : 1);
+      dot(x, y, Math.max(rMin, rBase + rDepth * front), ink ? null : ramp(funnelRamp, heat), a, ink ? 0.2 + 0.4 * (1 - front) : 0);
+    }
+    // the debris cloud at the ground: a flat spinning bowl, thrown outward and up
+    const nd = Math.round(N * (o.debris ?? (spout ? 0.25 : 0.4))), rd = Math.max(prof(0) * 2.6, size * 0.14);
+    for (let i = 0; i < nd; i++) {
+      const f = frac(E(i, 3.3) + t * 0.18), rr = rd * (0.25 + 0.75 * f), ph = E(i, 4.4) * TAU + t * spin * 0.5 / (0.4 + f);
+      const x = xc(0) + Math.cos(ph) * rr, y = yG - size * (0.02 + 0.14 * E(i, 5.5) * (1 - f) ** 0.5) * (spout ? 0.6 : 1) + Math.sin(ph) * rr * 0.18;
+      const a = (1 - f) * 0.55 * (0.75 + 0.25 * Math.sin(ph));
+      dot(x, y, Math.max(rMin, (0.6 + 0.6 * (1 - f)) * M), dustCol, a, ink ? 0.55 : 0);
+    }
+    ctx.restore();
+    if (o.ground) paintRim(ctx, W, size);
+  }
+
   /* ================================================================== registry + driver */
   const MODES = {
     cyclone: { draw: drawCyclone, defaults: CLOUD,   state: 'spinning' },
     clouds:  { draw: drawClouds,  defaults: CUMULUS, state: 'drifting' },
     storm:   { draw: drawStorm,   defaults: NIGHT,   state: 'flashing' },
-    lightning: { draw: drawLightning, defaults: BOLT, state: 'striking' }
+    lightning: { draw: drawLightning, defaults: BOLT, state: 'striking' },
+    tornado: { draw: drawTornado, defaults: FUNNEL, state: 'twisting' }
   };
   const STATE_TO_MODE = Object.fromEntries(Object.entries(MODES).map(([m, v]) => [v.state, m]));
 
@@ -461,7 +532,17 @@
     'anvil-crawler':   { mode: 'lightning', opts: { form: 'crawler', rate: 0.5 } },
     'sheet-lightning': { mode: 'lightning', opts: { form: 'sheet', rate: 0.9 } },
     'ball-lightning':  { mode: 'lightning', opts: { form: 'ball' } },
-    'megaflash':       { mode: 'lightning', opts: { form: 'crawler', rate: 0.35, branches: 10 } }
+    'megaflash':       { mode: 'lightning', opts: { form: 'crawler', rate: 0.35, branches: 10 } },
+    // tornadoes
+    'tornado':      { mode: 'tornado', opts: { sky: ['#2a3240', '#141a22'] } },
+    'el-reno':      { mode: 'tornado', opts: { width: 0.42, taper: 0.35, spin: 1.4, sway: 0.04, vortices: 3, sky: ['#2a3240', '#141a22'] } },
+    'tri-state':    { mode: 'tornado', opts: { width: 0.3, taper: 0.5, spin: 1.6, sway: 0.05, sky: ['#2a3240', '#141a22'] } },
+    'joplin':       { mode: 'tornado', opts: { width: 0.24, taper: 0.7, vortices: 2, sky: ['#2a3240', '#141a22'] } },
+    'bridge-creek': { mode: 'tornado', opts: { width: 0.18, taper: 1.0, spin: 3.4, sky: ['#2a3240', '#141a22'] } },
+    'waterspout':   { mode: 'tornado', opts: { form: 'waterspout', width: 0.07, taper: 1.2, sway: 0.16, sky: ['#2a4a70', '#0c2038'] },
+                      palette: P([130, 150, 175], [200, 215, 230], [245, 250, 255], [150, 190, 230]) },
+    'dust-devil':   { mode: 'tornado', opts: { form: 'dust-devil', width: 0.12, spin: 2.6, sway: 0.2, sky: ['#4a3a2a', '#1c140c'] } },
+    'fire-whirl':   { mode: 'tornado', opts: { form: 'fire-whirl', width: 0.09, taper: 1.0, spin: 3, sway: 0.15, sky: ['#1a0c08', '#0a0604'] } }
   };
   // named events by family, in display order
   const GROUPS = {
@@ -470,7 +551,8 @@
     'Typhoons': ['haiyan', 'tip'],
     'Clouds': ['cumulus', 'morning-glory', 'shelf-cloud'],
     'Thunderstorms': ['thunderstorm', 'supercell', 'hector', 'catatumbo'],
-    'Lightning': ['fork-lightning', 'anvil-crawler', 'sheet-lightning', 'ball-lightning', 'megaflash']
+    'Lightning': ['fork-lightning', 'anvil-crawler', 'sheet-lightning', 'ball-lightning', 'megaflash'],
+    'Tornadoes': ['tornado', 'el-reno', 'tri-state', 'joplin', 'bridge-creek', 'waterspout', 'dust-devil', 'fire-whirl']
   };
 
   const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -537,7 +619,7 @@
   }
 
   return {
-    version: '0.3.0',
+    version: '0.4.0',
     register, mount, MODES, STATE_TO_MODE, BODIES, GROUPS,
     draw: (mode, ctx, size, t, dark, opts) => MODES[mode].draw(ctx, size, t, dark, opts),
     // draw a named event: Coriolis.body('yasi', ctx, 64, t, dark, { lite: true })

@@ -1,4 +1,4 @@
-/*! coriolis 0.4.0 — weather events, drawn as dots. Canvas 2D, no dependencies. MIT. */
+/*! coriolis 0.5.0 — weather events, drawn as dots. Canvas 2D, no dependencies. MIT. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.Coriolis = factory();
@@ -482,13 +482,106 @@
     if (o.ground) paintRim(ctx, W, size);
   }
 
+  /* ================================================================== aurora */
+  // The aurora from the ground: curtains hanging across the sky, brightest along their lower edge and
+  // fading up the rays, folding and drifting sideways while the rays shimmer. `bands` curtains, the
+  // first hanging lowest and brightest. The palette ramp runs up the ray: cold at the lower edge, hot
+  // at the top, so green below and purple or red above.
+  const AURORA = { cold: [60, 230, 130], mid: [70, 190, 190], hot: [190, 90, 230], glow: [50, 200, 130] };
+  function drawAurora(ctx, size, t, dark, o = {}) {
+    const W = o.w ?? size, half = size / 2, cx = W / 2;
+    const ink = !!o.ink, pal = buildPal(o.palette || AURORA);
+    const M = radiusScale(size), lite = o.lite ? 0.5 : 1, rMin = 0.3;
+    const dot = dotPainter(ctx, ink, dark);
+    const bands = o.bands ?? 2, height = o.height ?? 0.45, drift = o.drift ?? 0.06, shimmer = o.shimmer ?? 1;
+    const N = Math.round((o.n ?? 1500) * countScale(size, 1.3, 20) * Math.sqrt(W / size) * lite * (ink ? 0.4 : 1));
+
+    ctx.save();
+    if (o.ground) paintPill(ctx, W, size, (o.sky || DUSK)[0], (o.sky || DUSK)[1]);
+    ctx.translate(cx, half);
+    ctx.globalCompositeOperation = ink ? 'source-over' : 'lighter';
+    if (o.ground) {   // a few stars behind the curtain
+      const ns = Math.round(30 * Math.sqrt(W * size) / 64);
+      for (let i = 0; i < ns; i++) dot((E(i, 3.3) - 0.5) * W, (E(i, 4.4) - 0.5) * size, 0.5 * M, [220, 228, 255], (0.15 + 0.4 * E(i, 5.5)) * (0.7 + 0.3 * Math.sin(t + i)), ink ? 0.3 : 0);
+    }
+    if (!ink && o.glow !== false) {
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.75);
+      g.addColorStop(0, rgba(pal.glow, 0.3)); g.addColorStop(1, rgba(pal.glow, 0));
+      ctx.fillStyle = g; ctx.fillRect(-W, -size, 2 * W, 2 * size);
+    }
+    for (let i = 0; i < N; i++) {
+      const b = i % bands, bf = b / bands;                               // which curtain
+      const u = frac(E(i, 1.1) + t * drift * (0.5 + 0.5 * bf)), h = E(i, 2.2) ** 0.6;   // along the curtain, then up the ray
+      const x = (u - 0.5) * 1.1 * W;
+      // the lower edge folds: slow big waves, a drifting ripple, and a wander; later bands hang higher
+      const fold = Math.sin(u * 6.3 + t * 0.3 + b * 2) * 0.09 + Math.sin(u * 15 - t * 0.5 + b) * 0.04 + (noise(u * 3 + t * 0.1, b * 7) - 0.5) * 0.12;
+      const y0 = size * (0.12 - 0.22 * bf + fold), H = size * height * (0.6 + 0.4 * noise(u * 4 + b * 3, t * 0.15)) * (1 - 0.3 * bf);
+      const ray = 0.35 + 0.65 * noise(u * 45 + t * 0.9 * shimmer, b * 11 + t * 0.2) ** 1.5;   // bright vertical streaks that shimmer
+      const y = y0 - h * H, lean = 0.05 * size * h * Math.sin(u * 9 + t * 0.4);          // rays lean a touch with the fold
+      const a = (0.15 + 0.85 * (1 - h) ** 1.3) * ray * (1 - 0.4 * bf) * (0.8 + 0.2 * Math.sin(t * 0.7 + b));
+      dot(x + lean, y, Math.max(rMin, (0.9 + 1.3 * (1 - h)) * M), ink ? null : ramp(pal.ramp, h), a, ink ? 0.2 + 0.5 * h : 0);
+    }
+    ctx.restore();
+    if (o.ground) paintRim(ctx, W, size);
+  }
+
+  /* ================================================================== precip */
+  // Rain, snow and hail from the side. Every drop has its own depth: nearer ones are bigger and fall
+  // faster. Rain streaks as a short trail of dots and slants with `wind`; snow drifts and sways; hail
+  // falls hard and bounces once at the ground. Stateless: each dot's height is a function of time.
+  const RAINY = { cold: [90, 110, 140], mid: [160, 180, 210], hot: [225, 235, 250], glow: [100, 120, 160] };
+  const FLAKE = [[170, 180, 200], [230, 236, 245], [255, 255, 255]];
+  function drawPrecip(ctx, size, t, dark, o = {}) {
+    const W = o.w ?? size, half = size / 2, cx = W / 2;
+    const form = o.form || 'rain', snow = form === 'snow', hail = form === 'hail';
+    const ink = !!o.ink, pal = buildPal(o.palette || RAINY);
+    const M = radiusScale(size), lite = o.lite ? 0.5 : 1, rMin = 0.3;
+    const dot = dotPainter(ctx, ink, dark);
+    const wind = o.wind ?? (snow ? 0.15 : 0.35), density = o.density ?? 1;
+    const speed = o.speed ?? (snow ? 0.12 : hail ? 0.9 : 1.1);           // canvas heights a second, up close
+    const N = Math.round((o.n ?? (snow ? 500 : hail ? 420 : 700)) * density * countScale(size, 1.3, 20) * Math.sqrt(W / size) * lite * (ink ? 0.5 : 1));
+    const yG = size * 0.47, span = W * 1.3;
+
+    ctx.save();
+    if (o.ground) paintPill(ctx, W, size, (o.sky || DUSK)[0], (o.sky || DUSK)[1]);
+    ctx.translate(cx, half);
+    ctx.globalCompositeOperation = ink ? 'source-over' : 'lighter';
+    if (!ink && o.glow !== false && !snow) {   // the low grey of a wet sky
+      const g = ctx.createLinearGradient(0, -half, 0, half);
+      g.addColorStop(0, rgba(pal.glow, 0.25)); g.addColorStop(1, rgba(pal.glow, 0));
+      ctx.fillStyle = g; ctx.fillRect(-W, -size, 2 * W, 2 * size);
+    }
+    for (let i = 0; i < N; i++) {
+      const d = E(i, 1.1) ** 1.5, sp = speed * (0.45 + 0.75 * d);        // depth: 0 far, 1 near
+      const p = frac(E(i, 2.2) + t * sp);                                  // 0 top, 1 ground
+      let x = (E(i, 3.3) - 0.5) * span + wind * size * p * (0.5 + 0.5 * d), y = -half + p * (yG + half);
+      if (snow) x += Math.sin(t * (0.8 + d) + i) * size * 0.03 * (0.5 + d) + (noise(i * 0.37, t * 0.2) - 0.5) * size * 0.08;
+      x = ((x + span / 2) % span + span) % span - span / 2;                // wrap the wind drift
+      const heat = 0.3 + 0.6 * d, r = Math.max(rMin, (snow ? 0.7 + 1.6 * d : hail ? 1.0 + 1.6 * d : 0.5 + 0.7 * d) * M);
+      const col = ink ? null : ramp(snow ? FLAKE : pal.ramp, heat);
+      if (hail) {   // falls hard, then one bounce at the ground
+        const q = p < 0.82 ? (p / 0.82) ** 1.8 : 1 - 0.14 * Math.sin((p - 0.82) / 0.18 * Math.PI) * (0.5 + 0.5 * d);
+        dot(x, -half + q * (yG + half), r, col, 0.4 + 0.5 * d, ink ? 0.1 : 0);
+      } else if (snow) {
+        dot(x, y, r, col, (0.35 + 0.55 * d) * (0.8 + 0.2 * Math.sin(t * 2 + i)), ink ? 0.1 : 0);
+      } else {      // a streak: three dots trailing back up the fall line
+        const dx = -wind * size * 0.02 * (0.5 + 0.5 * d), dy = -size * 0.022 * (0.5 + d);
+        for (let k = 0; k < 3; k++) dot(x + dx * k, y + dy * k, r * (1 - 0.2 * k), col, (0.25 + 0.55 * d) * (1 - 0.3 * k), ink ? 0.15 : 0);
+      }
+    }
+    ctx.restore();
+    if (o.ground) paintRim(ctx, W, size);
+  }
+
   /* ================================================================== registry + driver */
   const MODES = {
     cyclone: { draw: drawCyclone, defaults: CLOUD,   state: 'spinning' },
     clouds:  { draw: drawClouds,  defaults: CUMULUS, state: 'drifting' },
     storm:   { draw: drawStorm,   defaults: NIGHT,   state: 'flashing' },
     lightning: { draw: drawLightning, defaults: BOLT, state: 'striking' },
-    tornado: { draw: drawTornado, defaults: FUNNEL, state: 'twisting' }
+    tornado: { draw: drawTornado, defaults: FUNNEL, state: 'twisting' },
+    aurora:  { draw: drawAurora,  defaults: AURORA, state: 'glowing' },
+    precip:  { draw: drawPrecip,  defaults: RAINY,  state: 'falling' }
   };
   const STATE_TO_MODE = Object.fromEntries(Object.entries(MODES).map(([m, v]) => [v.state, m]));
 
@@ -542,7 +635,19 @@
     'waterspout':   { mode: 'tornado', opts: { form: 'waterspout', width: 0.07, taper: 1.2, sway: 0.16, sky: ['#2a4a70', '#0c2038'] },
                       palette: P([130, 150, 175], [200, 215, 230], [245, 250, 255], [150, 190, 230]) },
     'dust-devil':   { mode: 'tornado', opts: { form: 'dust-devil', width: 0.12, spin: 2.6, sway: 0.2, sky: ['#4a3a2a', '#1c140c'] } },
-    'fire-whirl':   { mode: 'tornado', opts: { form: 'fire-whirl', width: 0.09, taper: 1.0, spin: 3, sway: 0.15, sky: ['#1a0c08', '#0a0604'] } }
+    'fire-whirl':   { mode: 'tornado', opts: { form: 'fire-whirl', width: 0.09, taper: 1.0, spin: 3, sway: 0.15, sky: ['#1a0c08', '#0a0604'] } },
+    // aurora
+    'aurora-australis': { mode: 'aurora', opts: { sky: ['#04060e', '#0a1020'] } },
+    'aurora-borealis':  { mode: 'aurora', opts: { sky: ['#04060e', '#0a1020'] }, palette: P([50, 230, 120], [120, 210, 110], [230, 80, 90], [60, 200, 120]) },
+    'carrington':       { mode: 'aurora', opts: { bands: 3, height: 0.6, shimmer: 1.6, sky: ['#0a0408', '#1a0810'] }, palette: P([230, 90, 80], [220, 60, 120], [160, 40, 200], [220, 70, 90]) },
+    'may-2024':         { mode: 'aurora', opts: { bands: 3, height: 0.55, sky: ['#06040e', '#100a20'] }, palette: P([120, 230, 150], [230, 110, 200], [180, 80, 240], [200, 100, 220]) },
+    // rain and snow
+    'rain':     { mode: 'precip', opts: { sky: ['#2a3038', '#151a22'] } },
+    'drizzle':  { mode: 'precip', opts: { density: 0.5, speed: 0.5, wind: 0.1, sky: ['#3a4048', '#1c2028'] } },
+    'monsoon':  { mode: 'precip', opts: { density: 1.8, speed: 1.4, wind: 0.6, sky: ['#1e2a30', '#0c1418'] } },
+    'snow':     { mode: 'precip', opts: { form: 'snow', sky: ['#1e2634', '#0e1420'] } },
+    'blizzard': { mode: 'precip', opts: { form: 'snow', density: 2, wind: 1.2, speed: 0.5, sky: ['#262c38', '#12161e'] } },
+    'hail':     { mode: 'precip', opts: { form: 'hail', sky: ['#2a3038', '#151a22'] } }
   };
   // named events by family, in display order
   const GROUPS = {
@@ -552,7 +657,9 @@
     'Clouds': ['cumulus', 'morning-glory', 'shelf-cloud'],
     'Thunderstorms': ['thunderstorm', 'supercell', 'hector', 'catatumbo'],
     'Lightning': ['fork-lightning', 'anvil-crawler', 'sheet-lightning', 'ball-lightning', 'megaflash'],
-    'Tornadoes': ['tornado', 'el-reno', 'tri-state', 'joplin', 'bridge-creek', 'waterspout', 'dust-devil', 'fire-whirl']
+    'Tornadoes': ['tornado', 'el-reno', 'tri-state', 'joplin', 'bridge-creek', 'waterspout', 'dust-devil', 'fire-whirl'],
+    'Aurora': ['aurora-australis', 'aurora-borealis', 'carrington', 'may-2024'],
+    'Rain and snow': ['rain', 'drizzle', 'monsoon', 'snow', 'blizzard', 'hail']
   };
 
   const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -619,7 +726,7 @@
   }
 
   return {
-    version: '0.4.0',
+    version: '0.5.0',
     register, mount, MODES, STATE_TO_MODE, BODIES, GROUPS,
     draw: (mode, ctx, size, t, dark, opts) => MODES[mode].draw(ctx, size, t, dark, opts),
     // draw a named event: Coriolis.body('yasi', ctx, 64, t, dark, { lite: true })

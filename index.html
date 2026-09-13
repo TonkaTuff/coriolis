@@ -4,7 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Coriolis</title>
-<meta name="description" content="Weather events, drawn as dots on one canvas. Named cyclones, hurricanes and typhoons that spin the right way for their hemisphere. No dependencies, one script.">
+<meta name="description" content="Weather events, drawn as dots on one canvas. Cyclones, clouds, thunderstorms, lightning, tornadoes, the aurora, rain and snow. No dependencies, one script.">
+<meta property="og:title" content="Coriolis">
+<meta property="og:description" content="Weather events, drawn as dots. Forty-five named ones, one script, no dependencies.">
+<meta property="og:image" content="https://tonkatuff.github.io/coriolis/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cyclone Yasi in dots behind the words Weather events, drawn as dots.">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%230a0c11'/%3E%3Cpath d='M16 16m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M16 4c7 0 11 5 11 11M16 28C9 28 5 23 5 17' fill='none' stroke='%23fac800' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -40,7 +47,7 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
 <header class="wrap">
   <div class="eyebrow" id="eyebrow">coriolis</div>
   <h1>Weather events, drawn as dots.</h1>
-  <p class="lede">Cyclones as the satellite sees them, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit by their own lightning, lightning on its own, and tornadoes from rope to wedge. Thirty-five named events. No dependencies, one script.</p>
+  <p class="lede">Cyclones as the satellite sees them, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit by their own lightning, lightning on its own, tornadoes from rope to wedge, the aurora, rain and snow. Forty-five named events. No dependencies, one script.</p>
   <div class="hero"><canvas class="wx" width="720" height="360" data-wx-body="yasi" data-wx-ground="1"></canvas></div>
 </header>
 
@@ -53,7 +60,7 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
 
   <h2>Use it</h2>
   <p class="sub">One script, then a canvas per storm. Height is the size; a wider canvas gives the outer bands room.</p>
-  <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.4.0/dist/coriolis.min.js"&gt;&lt;/script&gt;
+  <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.5.0/dist/coriolis.min.js"&gt;&lt;/script&gt;
 &lt;canvas class="wx" width="200" height="200" data-wx-body="tracy"&gt;&lt;/canvas&gt;</code></pre>
   <table>
     <tr><th>attribute</th><th>value</th><th>what it does</th></tr>
@@ -73,6 +80,9 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
     <tr><td>data-wx-form</td><td>fork, crawler, sheet, ball</td><td>lightning: a strike to the ground, one along the cloud base, a cloud lit from inside, or ball lightning</td></tr>
     <tr><td>data-wx-form</td><td>tornado, waterspout, dust-devil, fire-whirl</td><td>tornado: a funnel with dust, one with spray, a column of dust with no cloud, or a vortex of embers</td></tr>
     <tr><td>data-wx-width / -taper / -sway / -vortices / -debris</td><td>number</td><td>tornado: width as a fraction of the height (0.16) · rope (2) to wedge (0.3) · how far the foot wanders (0.12) · sub-vortices inside (1) · dust as a share of the dots (0.4)</td></tr>
+    <tr><td>data-wx-bands / -height / -shimmer</td><td>number</td><td>aurora: curtains (2) · ray height as a fraction of the canvas (0.45) · how fast the rays flicker (1)</td></tr>
+    <tr><td>data-wx-form</td><td>rain, snow, hail</td><td>precip: streaks, flakes, or stones that bounce</td></tr>
+    <tr><td>data-wx-density / -speed / -wind</td><td>number</td><td>precip: how much (1) · fall speed in canvas heights a second · sideways slant</td></tr>
     <tr><td>data-wx-branches / -life / -radius</td><td>number</td><td>lightning: forks off the channel (6) · a ball's life in seconds (8) · its size as a fraction of the height (0.09)</td></tr>
     <tr><td>data-wx-ink / -lite / -ground</td><td>1</td><td>monochrome dots that follow the page theme · half the dots · dark sea under the cloud</td></tr>
     <tr><td>data-wx-glow</td><td>0</td><td>no soft glow under the core, just the dots on a clear canvas</td></tr>
@@ -118,13 +128,25 @@ const META = {
   'bridge-creek': '1999 · Oklahoma · 486 km/h, the fastest wind ever measured',
   waterspout: 'a thin funnel over the sea, spray at its foot',
   'dust-devil': 'no cloud at all: a column of dust, widest at the ground',
-  'fire-whirl': 'a vortex of flame and embers'
+  'fire-whirl': 'a vortex of flame and embers',
+  'aurora-australis': 'green below, purple above, folding and shimmering',
+  'aurora-borealis': 'green curtains with red tops',
+  carrington: '1859 · the biggest solar storm on record, red skies to the tropics',
+  'may-2024': '2024 · pink curtains seen from the suburbs the world over',
+  rain: 'streaks with a little wind in them',
+  drizzle: 'fine and slow',
+  monsoon: 'Darwin · the wet: heavy, slanted, everywhere',
+  snow: 'flakes that drift and sway; the near ones are big and quick',
+  blizzard: 'snow going sideways',
+  hail: 'stones that fall hard and bounce'
 };
 const SUB = { Cyclones: 'South of the equator. Clockwise.', Hurricanes: 'The Atlantic and eastern Pacific. Anticlockwise.', Typhoons: 'The western Pacific. Anticlockwise.',
   Clouds: 'From the side. Puffs tumble forward; a roll cloud turns about its own axis.', Thunderstorms: 'At night. Each flash is on a schedule hashed from the clock, so a still frame works too.',
   Lightning: 'The bolt itself. Every strike is a different shape; ball lightning lives eight seconds.',
-  Tornadoes: 'From the side. Dots ride round the funnel, fastest where it is narrow.' };
-const WIDE = { Clouds: 1, Thunderstorms: 1, Lightning: 1 };
+  Tornadoes: 'From the side. Dots ride round the funnel, fastest where it is narrow.',
+  Aurora: 'Curtains across the sky, brightest along the lower edge, rays shimmering above.',
+  'Rain and snow': 'Every drop has its own depth: the near ones are bigger and fall faster.' };
+const WIDE = { Clouds: 1, Thunderstorms: 1, Lightning: 1, Aurora: 1, 'Rain and snow': 1 };
 const nice = s => s[0].toUpperCase() + s.slice(1);
 const cell = (attrs, nm, meta, wide) => `<div class="cell"><canvas class="wx" width="${wide ? 220 : 150}" height="${wide ? 140 : 150}" ${attrs}></canvas><div class="nm">${nm}</div><div class="meta">${meta}</div></div>`;
 let h = '';

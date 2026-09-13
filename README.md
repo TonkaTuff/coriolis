@@ -1,13 +1,13 @@
 # Coriolis
 
-Weather events, drawn as dots. Cyclones as the satellite sees them, an eye, an eyewall and rainbands spiralling in, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit from inside by their own lightning, lightning on its own, and tornadoes from rope to wedge. Thirty-five named events. Canvas 2D, no dependencies, one script.
+Weather events, drawn as dots. Cyclones as the satellite sees them, an eye, an eyewall and rainbands spiralling in, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit from inside by their own lightning, lightning on its own, tornadoes from rope to wedge, the aurora, rain and snow. Forty-five named events. Canvas 2D, no dependencies, one script.
 
 Sister library to [Ephemeris](https://github.com/TonkaTuff/ephemeris), and the dots are sized to match, so the two sit together on a page.
 
 ## Use it
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.4.0/dist/coriolis.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.5.0/dist/coriolis.min.js"></script>
 <canvas class="wx" width="200" height="200" data-wx-body="tracy"></canvas>
 ```
 
@@ -54,6 +54,16 @@ One event at a time, if that's all you need: `dist/<name>.min.js` is the core pl
 | | `waterspout` | a thin funnel over the sea, spray at its foot |
 | | `dust-devil` | no cloud: a column of dust, widest at the ground |
 | | `fire-whirl` | a vortex of flame and embers |
+| Aurora | `aurora-australis` | green below, purple above, folding and shimmering |
+| | `aurora-borealis` | green curtains with red tops |
+| | `carrington` | 1859, the biggest solar storm on record: red skies down to the tropics |
+| | `may-2024` | the storm of May 2024: pink curtains seen from the suburbs the world over |
+| Rain and snow | `rain` | streaks with a little wind in them |
+| | `drizzle` | fine and slow |
+| | `monsoon` | the wet: heavy, slanted, everywhere |
+| | `snow` | flakes that drift and sway |
+| | `blizzard` | snow going sideways |
+| | `hail` | stones that fall hard and bounce |
 
 Cyclones spin clockwise, hurricanes and typhoons anticlockwise. That's the Coriolis effect, and the library's name.
 
@@ -89,6 +99,13 @@ Cyclones spin clockwise, hurricanes and typhoons anticlockwise. That's the Corio
 | `data-wx-vortices` | number | tornado: sub-vortices orbiting inside, 1 by default |
 | `data-wx-debris` | 0–1 | tornado: dust as a share of the dots, 0.4 by default |
 | `data-wx-spin` | number | tornado too: turns a second at the base, 2.2 by default |
+| `data-wx-bands` | number | aurora too: curtains, 2 by default |
+| `data-wx-height` | number | aurora: ray height as a fraction of the canvas, 0.45 by default |
+| `data-wx-shimmer` | number | aurora: how fast the rays flicker, 1 by default |
+| `data-wx-form` | `rain`, `snow`, `hail` | precip: streaks, flakes, or stones that bounce |
+| `data-wx-density` | number | precip: how much, 1 by default |
+| `data-wx-speed` | number | precip: fall speed in canvas heights a second |
+| `data-wx-wind` | number | precip: sideways slant, 0.35 for rain and 0.15 for snow by default |
 | `data-wx-ink` | `1` | monochrome dots that follow the page theme |
 | `data-wx-lite` | `1` | half the dots |
 | `data-wx-ground` | `1` | a pill of sea or sky behind it; each event brings its own, or pass `sky: ['#top', '#bottom']` in JavaScript |

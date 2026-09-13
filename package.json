@@ -1,6 +1,6 @@
 {
   "name": "coriolis-wx",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Weather events, drawn as dots: cyclones, rolling clouds and thunderstorms, lightning, tornadoes, the aurora, rain and snow, dust storms and wind, on one canvas. No dependencies.",
   "main": "src/coriolis.js",
   "files": ["dist", "src", "README.md", "LICENSE"],

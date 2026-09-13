@@ -1,13 +1,13 @@
 # Coriolis
 
-Weather events, drawn as dots. Cyclones as the satellite sees them, an eye, an eyewall and rainbands spiralling in, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit from inside by their own lightning, lightning on its own, tornadoes from rope to wedge, the aurora, rain and snow, dust storms and wind. Fifty-five named events. Canvas 2D, no dependencies, one script.
+Weather events, drawn as dots. Cyclones as the satellite sees them, an eye, an eyewall and rainbands spiralling in, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit from inside by their own lightning, lightning on its own, tornadoes from rope to wedge, the aurora, rain and snow, dust storms and wind. Fifty-seven named events. Canvas 2D, no dependencies, one script.
 
 Sister library to [Ephemeris](https://github.com/TonkaTuff/ephemeris), and the dots are sized to match, so the two sit together on a page.
 
 ## Use it
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.6.0/dist/coriolis.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.7.0/dist/coriolis.min.js"></script>
 <canvas class="wx" width="200" height="200" data-wx-body="tracy"></canvas>
 ```
 
@@ -44,6 +44,8 @@ One event at a time, if that's all you need: `dist/<name>.min.js` is the core pl
 | | `supercell` | a wide anvil and more strikes to the ground |
 | | `hector` | the Tiwi Islands' storm, up most afternoons of the build-up |
 | | `catatumbo` | Lake Maracaibo, the most lightning on Earth, nearly all of it inside the cloud |
+| | `pyrocumulonimbus` | a fire that makes its own storm: a fire line, embers riding the updraught, a smoke column, dry lightning |
+| | `black-summer` | 2019–20, Australia. Fires that made their own weather |
 | Lightning | `fork-lightning` | a big strike to the ground: the stepped leader feels its way down, then the return stroke |
 | | `anvil-crawler` | a bolt spidering sideways along a cloud base |
 | | `sheet-lightning` | a cloud lit from inside, no channel to see |
@@ -102,6 +104,7 @@ Cyclones spin clockwise, hurricanes and typhoons anticlockwise. That's the Corio
 | `data-wx-cg` | 0–1 | thunderstorm: share of flashes that strike the ground, 0.5 by default |
 | `data-wx-anvil`, `data-wx-tower` | number | thunderstorm: anvil width and tower height, 1 by default |
 | `data-wx-rain` | `0` | thunderstorm: no rain under the base |
+| `data-wx-form` | `pyro` | thunderstorm: a fire's own storm, with a fire line, embers and a smoke column, no rain |
 | `data-wx-form` | `fork`, `crawler`, `sheet`, `ball` | lightning: a strike to the ground, one along the cloud base, a cloud lit from inside, or ball lightning |
 | `data-wx-branches` | number | lightning: forks off the channel, 6 by default |
 | `data-wx-life` | seconds | ball lightning: one life, 8 by default |

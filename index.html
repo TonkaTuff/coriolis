@@ -47,7 +47,7 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
 <header class="wrap">
   <div class="eyebrow" id="eyebrow">coriolis</div>
   <h1>Weather events, drawn as dots.</h1>
-  <p class="lede">Cyclones as the satellite sees them, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit by their own lightning, lightning on its own, tornadoes from rope to wedge, the aurora, rain and snow, dust storms and wind. Fifty-five named events. No dependencies, one script.</p>
+  <p class="lede">Cyclones as the satellite sees them, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit by their own lightning, lightning on its own, tornadoes from rope to wedge, the aurora, rain and snow, dust storms and wind. Fifty-seven named events. No dependencies, one script.</p>
   <div class="hero"><canvas class="wx" width="720" height="360" data-wx-body="yasi" data-wx-ground="1"></canvas></div>
 </header>
 
@@ -60,7 +60,7 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
 
   <h2>Use it</h2>
   <p class="sub">One script, then a canvas per storm. Height is the size; a wider canvas gives the outer bands room.</p>
-  <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.6.0/dist/coriolis.min.js"&gt;&lt;/script&gt;
+  <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.7.0/dist/coriolis.min.js"&gt;&lt;/script&gt;
 &lt;canvas class="wx" width="200" height="200" data-wx-body="tracy"&gt;&lt;/canvas&gt;</code></pre>
   <table>
     <tr><th>attribute</th><th>value</th><th>what it does</th></tr>
@@ -80,6 +80,7 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
     <tr><td>data-wx-rate / -cg</td><td>number</td><td>thunderstorm: flashes a second · share that strike the ground (0 to 1)</td></tr>
     <tr><td>data-wx-anvil / -tower</td><td>number</td><td>thunderstorm: anvil width and tower height, 1 by default</td></tr>
     <tr><td>data-wx-rain</td><td>0</td><td>thunderstorm: no rain under the base</td></tr>
+    <tr><td>data-wx-form</td><td>pyro</td><td>thunderstorm: a fire's own storm, with a fire line, embers and a smoke column</td></tr>
     <tr><td>data-wx-form</td><td>fork, crawler, sheet, ball</td><td>lightning: a strike to the ground, one along the cloud base, a cloud lit from inside, or ball lightning</td></tr>
     <tr><td>data-wx-form</td><td>tornado, waterspout, dust-devil, fire-whirl</td><td>tornado: a funnel with dust, one with spray, a column of dust with no cloud, or a vortex of embers</td></tr>
     <tr><td>data-wx-width / -taper / -sway / -vortices / -debris</td><td>number</td><td>tornado: width as a fraction of the height (0.16) · rope (2) to wedge (0.3) · how far the foot wanders (0.12) · sub-vortices inside (1) · dust as a share of the dots (0.4)</td></tr>
@@ -119,6 +120,8 @@ const META = {
   supercell: 'a rotating giant with a wide anvil, ground strikes',
   hector: 'Tiwi Islands · the same storm most afternoons of the build-up',
   catatumbo: 'Lake Maracaibo · the most lightning on Earth, nearly all in the cloud',
+  pyrocumulonimbus: 'a fire that makes its own storm: smoke column, embers, dry lightning',
+  'black-summer': '2019–20 · Australia · fires that made their own weather',
   'fork-lightning': 'a stepped leader feels its way down, then the return stroke',
   'anvil-crawler': 'spidering sideways along a cloud base',
   'sheet-lightning': 'a cloud lit from inside, no channel to see',

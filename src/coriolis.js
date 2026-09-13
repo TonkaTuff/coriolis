@@ -1,4 +1,4 @@
-/*! coriolis 0.6.0 — weather events, drawn as dots. Canvas 2D, no dependencies. MIT. */
+/*! coriolis 0.7.0 — weather events, drawn as dots. Canvas 2D, no dependencies. MIT. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.Coriolis = factory();
@@ -255,9 +255,10 @@
   // work. A cloud-to-ground bolt forks to the bottom of the canvas with restrikes; the rest flicker
   // inside the cloud. Rain falls under the base.
   const NIGHT = { cold: [55, 65, 90], mid: [140, 150, 180], hot: [235, 240, 255], glow: [120, 150, 255] };
+  const SMOKE = { cold: [60, 45, 40], mid: [130, 110, 100], hot: [235, 205, 175], glow: [255, 120, 40] };   // `form: 'pyro'`: a fire's own storm
   function drawStorm(ctx, size, t, dark, o = {}) {
     const W = o.w ?? size, half = size / 2, cx = W / 2;
-    const ink = !!o.ink, pal = buildPal(o.palette || NIGHT);
+    const pyro = o.form === 'pyro', ink = !!o.ink, pal = buildPal(o.palette || (pyro ? SMOKE : NIGHT));
     const M = radiusScale(size), lite = o.lite ? 0.5 : 1;
     const anvil = o.anvil ?? 1, tower = o.tower ?? 1;
     const yBase = size * 0.22, yTop = yBase - size * 0.62 * tower;   // the cloud base and the anvil top
@@ -297,6 +298,12 @@
     if (o.ground) paintPill(ctx, W, size, (o.sky || DUSK)[0], (o.sky || DUSK)[1]);
     ctx.translate(cx, half);
     ctx.globalCompositeOperation = ink ? 'source-over' : 'lighter';
+    const fy = yBase + size * 0.22;   // where the fire is, when there is one
+    if (pyro && !ink && o.glow !== false) {
+      const g = ctx.createRadialGradient(0, fy, 0, 0, fy, size * 0.5);
+      g.addColorStop(0, rgba(pal.glow, 0.5)); g.addColorStop(1, rgba(pal.glow, 0));
+      ctx.fillStyle = g; ctx.fillRect(-W, -size, 2 * W, 2 * size);
+    }
     if (flash && !ink && o.glow !== false) {   // the flash lights the cloud from inside
       const g = ctx.createRadialGradient(flash.x, flash.y, 0, flash.x, flash.y, size * 0.45);
       g.addColorStop(0, rgba(pal.glow, 0.5 * flash.I)); g.addColorStop(1, rgba(pal.glow, 0));
@@ -310,10 +317,23 @@
       if (body < 0.05) continue;
       let lit = 0;
       if (flash) { const dx = x - flash.x, dy = y - flash.y; lit = flash.I * Math.exp(-(dx * dx + dy * dy) / (2 * (0.3 * size) ** 2)); }
-      const heat = clamp01(0.2 + 0.2 * v + 0.9 * lit), a = body * cirrus * (0.26 + 0.14 * tex + 0.55 * lit);
+      const firelit = pyro ? 0.6 * Math.exp(-v * 3.5) : 0;   // the fire lights the column from below
+      const heat = clamp01(0.2 + 0.2 * v + 0.9 * lit + firelit), a = body * cirrus * (0.26 + 0.14 * tex + 0.55 * lit + 0.3 * firelit);
       dot(x, y, Math.max(rMin, rBase + rDepth * (0.3 + 0.7 * lit)), ink ? null : ramp(pal.ramp, heat), a, ink ? 0.6 * (1 - lit) : 0);
     }
-    if (o.rain !== false) {
+    if (pyro) {   // the fire line under the tower, and embers riding the updraught
+      const nf = Math.round(N * 0.2);
+      for (let i = 0; i < nf; i++) {
+        const x = (E(i, 11.1) - 0.5) * 2.6 * wBase, fl = 0.6 + 0.4 * noise(i * 0.21, t * 3);
+        dot(x, fy + (E(i, 12.2) - 0.5) * size * 0.05, Math.max(rMin, (0.8 + 0.8 * fl) * M), [255, Math.round(60 + 150 * fl), 40], 0.5 + 0.5 * fl, ink ? 0.1 : 0);
+      }
+      const ne = Math.round(N * 0.12);
+      for (let i = 0; i < ne; i++) {
+        const f = frac(E(i, 13.3) + t * 0.25), x = (E(i, 14.4) - 0.5) * 2.2 * wBase * (1 - 0.5 * f) + (noise(i * 0.3, t * 0.5) - 0.5) * size * 0.1;
+        dot(x, fy - f * size * 0.55, Math.max(rMin, 0.6 * M), [255, 190, 90], (1 - f) * 0.8, ink ? 0.2 : 0);
+      }
+    }
+    if (o.rain !== false && !pyro) {
       const nr = Math.round(N * 0.25), lit = flash ? flash.I * 0.5 : 0;
       for (let i = 0; i < nr; i++) {
         const x = (E(i, 8.8) - 0.5) * 2.2 * wBase, y = yBase + size * 0.01 + frac(E(i, 9.9) + t * 0.9) * size * 0.26;
@@ -770,6 +790,8 @@
     'hector':       { mode: 'storm', opts: { rate: 1.0, cg: 0.45, anvil: 1.15 } },
     'catatumbo':    { mode: 'storm', opts: { rate: 1.8, cg: 0.2, sky: ['#0c1024', '#1a1430'] },
                       palette: P([70, 60, 110], [160, 150, 200], [245, 240, 255], [170, 120, 255]) },
+    'pyrocumulonimbus': { mode: 'storm', opts: { form: 'pyro', rate: 0.7, cg: 0.6, anvil: 1.2, sky: ['#1a0e0a', '#0a0604'] } },
+    'black-summer':     { mode: 'storm', opts: { form: 'pyro', rate: 0.5, cg: 0.5, anvil: 1.35, tower: 1.1, sky: ['#2a1008', '#0c0503'] } },
     // lightning
     'fork-lightning':  { mode: 'lightning', opts: { form: 'fork' } },
     'anvil-crawler':   { mode: 'lightning', opts: { form: 'crawler', rate: 0.5 } },
@@ -814,7 +836,7 @@
     'Hurricanes': ['katrina', 'andrew', 'wilma', 'sandy', 'patricia', 'dorian'],
     'Typhoons': ['haiyan', 'tip'],
     'Clouds': ['cumulus', 'morning-glory', 'shelf-cloud', 'lenticular', 'mammatus', 'cirrus'],
-    'Thunderstorms': ['thunderstorm', 'supercell', 'hector', 'catatumbo'],
+    'Thunderstorms': ['thunderstorm', 'supercell', 'hector', 'catatumbo', 'pyrocumulonimbus', 'black-summer'],
     'Lightning': ['fork-lightning', 'anvil-crawler', 'sheet-lightning', 'ball-lightning', 'megaflash'],
     'Tornadoes': ['tornado', 'el-reno', 'tri-state', 'joplin', 'bridge-creek', 'waterspout', 'dust-devil', 'fire-whirl'],
     'Aurora': ['aurora-australis', 'aurora-borealis', 'carrington', 'may-2024'],
@@ -887,7 +909,7 @@
   }
 
   return {
-    version: '0.6.0',
+    version: '0.7.0',
     register, mount, MODES, STATE_TO_MODE, BODIES, GROUPS,
     draw: (mode, ctx, size, t, dark, opts) => MODES[mode].draw(ctx, size, t, dark, opts),
     // draw a named event: Coriolis.body('yasi', ctx, 64, t, dark, { lite: true })

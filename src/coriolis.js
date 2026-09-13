@@ -1,4 +1,4 @@
-/*! coriolis 0.5.0 — weather events, drawn as dots. Canvas 2D, no dependencies. MIT. */
+/*! coriolis 0.6.0 — weather events, drawn as dots. Canvas 2D, no dependencies. MIT. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.Coriolis = factory();
@@ -148,15 +148,16 @@
   /* ================================================================== clouds */
   // Cloud from the side. `form: 'puff'` is cumulus: a few cauliflower heads that drift along and
   // tumble forward, dots on noise-swollen spheres with flat bases. `form: 'roll'` is one long tube
-  // turning about its own axis as it comes, the Morning Glory. Both are lit from above and in front,
-  // so the tops are bright and the undersides shadowed.
+  // turning about its own axis as it comes, the Morning Glory. 'lenticular' stacks smooth lenses,
+  // 'mammatus' hangs pouches under a deck, 'cirrus' combs out mare's tails. All are lit from above
+  // and in front (mammatus from below), so tops are bright and undersides shadowed.
   const CUMULUS = { cold: [95, 108, 135], mid: [190, 198, 215], hot: [255, 253, 248], glow: [140, 160, 200] };
   const SKY = ['#182848', '#080c18'];
   function drawClouds(ctx, size, t, dark, o = {}) {
     const W = o.w ?? size, half = size / 2, cx = W / 2;
     const ink = !!o.ink, pal = buildPal(o.palette || CUMULUS);
     const M = radiusScale(size), lite = o.lite ? 0.5 : 1;
-    const roll = o.form === 'roll';
+    const form = o.form || 'puff', roll = form === 'roll';
     const drift = o.drift ?? 0.04, spin = o.spin ?? (roll ? 0.4 : 0.15);
     const N = Math.round((o.n ?? 900) * countScale(size, 1.3, 20) * Math.sqrt(W / size) * lite * (ink ? 0.4 : 1));
     const rBase = (o.rBase ?? (ink ? 1.3 : 1.0)) * M, rDepth = (o.rDepth ?? (ink ? 1.1 : 1.2)) * M, rMin = 0.3;
@@ -186,6 +187,45 @@
                         + 0.1 * (noise(x / size * 6 + 3 * Math.cos(ph) + 9, 3 * Math.sin(ph)) * 2 - 1);
         const rr = Rt * swell, sag = 0.05 * size * Math.sin(x / W * 4 + t * 0.15);
         paint(x, sag - rr * Math.sin(ph) * 0.9, Math.cos(ph), Math.sin(ph));
+      }
+    } else if (form === 'lenticular') {
+      // a stack of smooth lenses parked over a ridge: the air streams through, the cloud stays put
+      const K = o.stack ?? 3, n = Math.round(N / K);
+      for (let k = 0; k < K; k++) {
+        const Rx = size * (0.36 - 0.06 * k) * ((o.radius ?? 0.2) / 0.2), Ry = Rx * 0.16;
+        const y0 = size * (0.12 - 0.17 * k) + size * 0.01 * Math.sin(t * 0.4 + k), x0 = size * 0.03 * k;
+        for (let i = 0; i < n; i++) {
+          const a = E(i, 3.3 + k) * TAU, v = E(i, 4.4 + k) * 2 - 1, r = Math.sqrt(1 - v * v);   // a point on the lens
+          const px = Math.cos(a) * r, pz = Math.sin(a) * r;
+          const ripple = 1 + 0.04 * Math.sin(px * 9 + t * drift * 20 + k);                    // the air moving through
+          paint(x0 + px * Rx * ripple, y0 - v * Ry, pz, v);
+        }
+      }
+    } else if (form === 'mammatus') {
+      // pouches hanging under an anvil: rows of bulbs, each lit on its underside by a low sun
+      const cols = o.pouches ?? 7, rows = 3, K = cols * rows, n = Math.round(N / K);
+      for (let k = 0; k < K; k++) {
+        const c = k % cols, r0 = Math.floor(k / cols), depth = r0 / (rows - 1);   // rows recede
+        const Rp = size * (0.09 - 0.02 * depth) * (0.85 + 0.3 * E(k, 6.6));
+        const x0 = ((c + 0.5 + 0.5 * (r0 % 2)) / cols - 0.5) * 1.1 * W, y0 = -size * (0.22 + 0.14 * depth) + Rp * 0.3 * Math.sin(t * 0.5 + k);
+        for (let i = 0; i < n; i++) {
+          const uy = E(i, 7.7 + k) * 2 - 1, ua = E(i, 8.8 + k) * TAU, ur = Math.sqrt(1 - uy * uy);
+          if (uy > 0.35) continue;                                              // the top is buried in the deck
+          const px = ur * Math.cos(ua), pz = ur * Math.sin(ua);
+          const rr = Rp * (1 + 0.1 * (noise(px * 3 + k, uy * 3 + t * 0.1) - 0.5));
+          paint(x0 + px * rr, y0 - uy * rr * 1.15, pz, -uy);                     // lit from below
+        }
+      }
+    } else if (form === 'cirrus') {
+      // mare's tails: high thin streaks combed by the wind, a tuft that falls then streams out flat
+      const K = o.streaks ?? 9, n = Math.round(N / K);
+      for (let k = 0; k < K; k++) {
+        const x0 = (frac(E(k, 9.9) + t * drift * 0.3) - 0.5) * 1.3 * W, y0 = (E(k, 10.1) - 0.5) * 0.7 * size, len = size * (0.25 + 0.3 * E(k, 11.1));
+        for (let i = 0; i < n; i++) {
+          const f = E(i, 12.2 + k), spread = (E(i, 13.3 + k) - 0.5) * size * 0.02 * (1 + 3 * f);
+          const x = x0 + f * len, y = y0 - Math.sqrt(f) * size * 0.1 + spread + (noise(f * 5 + k, t * 0.2) - 0.5) * size * 0.03;
+          paint(x, y, 0.3, 0.6 - 0.5 * f);
+        }
       }
     } else {
       const K = o.puffs ?? 3, n = Math.round(N / K);
@@ -573,6 +613,111 @@
     if (o.ground) paintRim(ctx, W, size);
   }
 
+  /* ================================================================== dust */
+  // Dust from the side. `form: 'wall'` is a haboob: a wall of dust taller than the canvas rolling in,
+  // its front lobed and turning over, fine dust blown out ahead of it. `form: 'haze'` is the day
+  // after: the whole sky full of it, a dim sun through the murk. The palette is the dust itself.
+  const OCHRE = { cold: [110, 60, 25], mid: [200, 130, 60], hot: [245, 200, 140], glow: [220, 140, 60] };
+  const OCHRESKY = ['#7a3e14', '#2a1408'];
+  function drawDust(ctx, size, t, dark, o = {}) {
+    const W = o.w ?? size, half = size / 2, cx = W / 2;
+    const haze = (o.form || 'wall') === 'haze';
+    const ink = !!o.ink, pal = buildPal(o.palette || OCHRE);
+    const M = radiusScale(size), lite = o.lite ? 0.5 : 1, rMin = 0.3;
+    const dot = dotPainter(ctx, ink, dark);
+    const N = Math.round((o.n ?? 1000) * countScale(size, 1.3, 20) * Math.sqrt(W / size) * lite * (ink ? 0.4 : 1));
+    const wind = o.wind ?? 0.12;
+
+    ctx.save();
+    if (o.ground) paintPill(ctx, W, size, (o.sky || OCHRESKY)[0], (o.sky || OCHRESKY)[1]);
+    ctx.translate(cx, half);
+    ctx.globalCompositeOperation = ink ? 'source-over' : 'lighter';
+    if (haze) {
+      const sx = W * 0.15, sy = -size * 0.15;
+      if (!ink && o.glow !== false) {
+        const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, size * 0.5);
+        g.addColorStop(0, rgba(pal.glow, 0.5)); g.addColorStop(1, rgba(pal.glow, 0));
+        ctx.fillStyle = g; ctx.fillRect(-W, -size, 2 * W, 2 * size);
+      }
+      const ns = Math.round(N * 0.12), Rs = size * 0.09;   // the sun, a dim disc through the dust
+      for (let i = 0; i < ns; i++) { const a = E(i, 1.1) * TAU, r = Rs * Math.sqrt(E(i, 2.2)); dot(sx + Math.cos(a) * r, sy + Math.sin(a) * r, Math.max(rMin, 1.1 * M), pal.ramp[2], 0.5, ink ? 0.2 : 0); }
+      for (let i = 0; i < N; i++) {   // fine dust streaming across, thicker low down
+        const d = E(i, 3.3), y = (E(i, 4.4) ** 0.7 - 0.5) * size, x = (frac(E(i, 5.5) + t * wind * (0.4 + 0.8 * d)) - 0.5) * 1.2 * W;
+        const tex = noise(x / size * 3 + t * 0.2, y / size * 3);
+        dot(x, y + (noise(i * 0.31, t * 0.3) - 0.5) * size * 0.05, Math.max(rMin, (0.6 + 1.0 * d) * M), ink ? null : ramp(pal.ramp, 0.2 + 0.5 * d), (0.12 + 0.3 * tex) * (0.5 + 0.5 * d) * (0.6 + 0.4 * (y / size + 0.5)), ink ? 0.5 : 0);
+      }
+      ctx.restore(); if (o.ground) paintRim(ctx, W, size); return;
+    }
+    // the wall: its front edge, lobed, sits near the middle and breathes forward
+    const front = u => W * (0.05 + 0.08 * Math.sin(t * 0.15)) + (noise(u * 4 + 3, t * 0.12) - 0.5) * W * 0.22 + (noise(u * 12, t * 0.3 + 7) - 0.5) * W * 0.06;
+    if (!ink && o.glow !== false) {
+      const g = ctx.createLinearGradient(-W / 2, 0, W / 2, 0);
+      g.addColorStop(0, rgba(pal.glow, 0.35)); g.addColorStop(0.5, rgba(pal.glow, 0.2)); g.addColorStop(1, rgba(pal.glow, 0));
+      ctx.fillStyle = g; ctx.fillRect(-W, -size, 2 * W, 2 * size);
+    }
+    for (let i = 0; i < N; i++) {
+      const u = E(i, 1.1) ** 0.8, depth = E(i, 2.2);                          // height, and how deep into the wall
+      const fx = front(u), y = size * 0.45 - u * size * 0.95;
+      const roll = frac(E(i, 3.3) + t * 0.08);                                // near the front the dust turns over
+      const x = fx - depth * W * 0.9 + Math.sin(roll * TAU) * size * 0.04 * (1 - depth);
+      if (x < -W * 0.55) continue;
+      const tex = noise(x / size * 4 + t * 0.15, y / size * 4), heat = clamp01(0.15 + 0.5 * (1 - depth) * u + 0.35 * tex);
+      const a = (0.25 + 0.45 * tex) * (0.4 + 0.6 * (1 - depth) ** 0.5) * (u < 0.92 ? 1 : (1 - u) / 0.08);
+      dot(x, y, Math.max(rMin, (0.8 + 1.0 * (1 - depth)) * M), ink ? null : ramp(pal.ramp, heat), a, ink ? 0.3 + 0.4 * depth : 0);
+    }
+    const nb = Math.round(N * 0.3);   // fine dust blown out ahead of the wall, low and fast
+    for (let i = 0; i < nb; i++) {
+      const u = E(i, 6.6) ** 2, x = front(u) + frac(E(i, 7.7) + t * 0.5) * W * 0.6, y = size * 0.45 - u * size * 0.5;
+      if (x > W * 0.55) continue;
+      dot(x, y, Math.max(rMin, 0.6 * M), pal.ramp[1], 0.12 + 0.2 * E(i, 8.8), ink ? 0.6 : 0);
+    }
+    ctx.restore();
+    if (o.ground) paintRim(ctx, W, size);
+  }
+
+  /* ================================================================== wind */
+  // Wind as streaks: particles ride a flow field and leave a short trail, the way a wind map does.
+  // Each streak is a piece of streamline through a hashed seed, integrated fresh every frame with a
+  // particle running along it, so nothing needs remembering between frames. `form: 'jet'` puts a fast
+  // meandering core across the middle; 'front' sweeps a line of strong wind through; 'gusty' churns
+  // the field. Streaks colour by speed.
+  const BREEZE = { cold: [70, 100, 140], mid: [150, 190, 230], hot: [240, 250, 255], glow: [90, 130, 180] };
+  function drawWind(ctx, size, t, dark, o = {}) {
+    const W = o.w ?? size, half = size / 2, cx = W / 2;
+    const form = o.form || 'steady', jet = form === 'jet', frontal = form === 'front', gusty = form === 'gusty';
+    const ink = !!o.ink, pal = buildPal(o.palette || BREEZE);
+    const M = radiusScale(size), lite = o.lite ? 0.5 : 1, rMin = 0.3;
+    const dot = dotPainter(ctx, ink, dark);
+    const speed = o.speed ?? 1, churn = o.churn ?? (gusty ? 1.6 : 0.6), steps = 14, tail = 6;
+    const NS = Math.round((o.n ?? 340) * countScale(size, 1.1, 12) * Math.sqrt(W / size) * lite * (ink ? 0.6 : 1));
+    const fx0 = frontal ? W * (0.6 - frac(t * 0.05) * 1.4) : 0;                 // where the front is
+    const vel = (x, y) => {   // the field, in canvas heights a second
+      const nx = x / size, ny = y / size;
+      let vx = 0.35 + churn * 0.4 * (noise(nx * 1.6 + t * 0.12, ny * 1.6) - 0.5) * 2, vy = churn * 0.3 * (noise(nx * 1.6 + 9, ny * 1.6 - t * 0.1) - 0.5) * 2;
+      if (jet) { const core = Math.exp(-((ny - 0.12 * Math.sin(nx * 2.2 + t * 0.15)) ** 2) / 0.02); vx += 1.4 * core; vy += 0.25 * core * Math.cos(nx * 2.2 + t * 0.15); }
+      if (frontal) { const behind = smooth((fx0 - x) / (W * 0.15)); vx += 1.2 * behind; vy += 0.3 * behind * Math.sin(ny * 6 + t); }
+      return [vx * speed * size, vy * speed * size];
+    };
+
+    ctx.save();
+    if (o.ground) paintPill(ctx, W, size, (o.sky || DUSK)[0], (o.sky || DUSK)[1]);
+    ctx.translate(cx, half);
+    ctx.globalCompositeOperation = ink ? 'source-over' : 'lighter';
+    for (let i = 0; i < NS; i++) {
+      // the seed drifts downwind slowly and wraps, so streaks don't sit still
+      let x = (frac(E(i, 1.1) + t * 0.02) - 0.5) * 1.2 * W, y = (E(i, 2.2) - 0.5) * 1.1 * size;
+      const head = frac(E(i, 3.3) + t * 0.6) * (steps - 1), pts = [];
+      for (let k = 0; k < steps; k++) { const [vx, vy] = vel(x, y); pts.push([x, y, Math.hypot(vx, vy) / size]); x += vx * 0.05; y += vy * 0.05; }
+      for (let k = 0; k < steps; k++) {   // the particle at `head`, a trail fading behind it
+        const back = head - k; if (back < 0 || back > tail) continue;
+        const [px, py, sp] = pts[k], f = 1 - back / tail, a = f ** 1.3 * (0.5 + 0.5 * clamp01(sp / 1.2));
+        dot(px, py, Math.max(rMin, (0.7 + 1.0 * f) * M), ink ? null : ramp(pal.ramp, 0.3 + 0.7 * clamp01(sp / 1.6)), a, ink ? 0.1 + 0.4 * (1 - f) : 0);
+      }
+    }
+    ctx.restore();
+    if (o.ground) paintRim(ctx, W, size);
+  }
+
   /* ================================================================== registry + driver */
   const MODES = {
     cyclone: { draw: drawCyclone, defaults: CLOUD,   state: 'spinning' },
@@ -581,7 +726,9 @@
     lightning: { draw: drawLightning, defaults: BOLT, state: 'striking' },
     tornado: { draw: drawTornado, defaults: FUNNEL, state: 'twisting' },
     aurora:  { draw: drawAurora,  defaults: AURORA, state: 'glowing' },
-    precip:  { draw: drawPrecip,  defaults: RAINY,  state: 'falling' }
+    precip:  { draw: drawPrecip,  defaults: RAINY,  state: 'falling' },
+    dust:    { draw: drawDust,    defaults: OCHRE,  state: 'choking' },
+    wind:    { draw: drawWind,    defaults: BREEZE, state: 'blowing' }
   };
   const STATE_TO_MODE = Object.fromEntries(Object.entries(MODES).map(([m, v]) => [v.state, m]));
 
@@ -614,6 +761,9 @@
                        palette: P([90, 80, 110], [215, 190, 190], [255, 240, 225], [230, 150, 110]) },
     'shelf-cloud':   { mode: 'clouds', opts: { form: 'roll', radius: 0.27, spin: 0.2, drift: 0.06, sky: ['#1a2230', '#05070c'] },
                        palette: P([40, 50, 60], [120, 130, 140], [220, 225, 225], [90, 110, 120]) },
+    'lenticular':    { mode: 'clouds', opts: { form: 'lenticular', sky: ['#243a60', '#0e1a30'] } },
+    'mammatus':      { mode: 'clouds', opts: { form: 'mammatus', sky: ['#3a2438', '#1a1020'] }, palette: P([90, 60, 80], [220, 150, 120], [255, 220, 180], [230, 140, 100]) },
+    'cirrus':        { mode: 'clouds', opts: { form: 'cirrus', sky: ['#1a3060', '#0a1830'] } },
     // thunderstorms
     'thunderstorm': { mode: 'storm' },
     'supercell':    { mode: 'storm', opts: { rate: 0.8, cg: 0.6, anvil: 1.25, tower: 1.08 } },
@@ -647,19 +797,30 @@
     'monsoon':  { mode: 'precip', opts: { density: 1.8, speed: 1.4, wind: 0.6, sky: ['#1e2a30', '#0c1418'] } },
     'snow':     { mode: 'precip', opts: { form: 'snow', sky: ['#1e2634', '#0e1420'] } },
     'blizzard': { mode: 'precip', opts: { form: 'snow', density: 2, wind: 1.2, speed: 0.5, sky: ['#262c38', '#12161e'] } },
-    'hail':     { mode: 'precip', opts: { form: 'hail', sky: ['#2a3038', '#151a22'] } }
+    'hail':     { mode: 'precip', opts: { form: 'hail', sky: ['#2a3038', '#151a22'] } },
+    // dust
+    'haboob':   { mode: 'dust', opts: { form: 'wall' } },
+    'red-dawn': { mode: 'dust', opts: { form: 'haze', sky: ['#8a3a10', '#3a1808'] } },
+    // wind
+    'breeze':           { mode: 'wind', opts: { speed: 0.6, churn: 0.5, sky: ['#0f1a2a', '#0a1220'] } },
+    'trade-winds':      { mode: 'wind', opts: { speed: 1, churn: 0.35, sky: ['#0f1a2a', '#0a1220'] } },
+    'gale':             { mode: 'wind', opts: { form: 'gusty', speed: 1.6, sky: ['#141a26', '#0a0e16'] } },
+    'jet-stream':       { mode: 'wind', opts: { form: 'jet', sky: ['#0f1a2a', '#0a1220'] } },
+    'southerly-buster': { mode: 'wind', opts: { form: 'front', sky: ['#0f1a2a', '#0a1220'] } }
   };
   // named events by family, in display order
   const GROUPS = {
     'Cyclones': ['tracy', 'yasi', 'larry', 'debbie', 'winston', 'freddy', 'alfred'],
     'Hurricanes': ['katrina', 'andrew', 'wilma', 'sandy', 'patricia', 'dorian'],
     'Typhoons': ['haiyan', 'tip'],
-    'Clouds': ['cumulus', 'morning-glory', 'shelf-cloud'],
+    'Clouds': ['cumulus', 'morning-glory', 'shelf-cloud', 'lenticular', 'mammatus', 'cirrus'],
     'Thunderstorms': ['thunderstorm', 'supercell', 'hector', 'catatumbo'],
     'Lightning': ['fork-lightning', 'anvil-crawler', 'sheet-lightning', 'ball-lightning', 'megaflash'],
     'Tornadoes': ['tornado', 'el-reno', 'tri-state', 'joplin', 'bridge-creek', 'waterspout', 'dust-devil', 'fire-whirl'],
     'Aurora': ['aurora-australis', 'aurora-borealis', 'carrington', 'may-2024'],
-    'Rain and snow': ['rain', 'drizzle', 'monsoon', 'snow', 'blizzard', 'hail']
+    'Rain and snow': ['rain', 'drizzle', 'monsoon', 'snow', 'blizzard', 'hail'],
+    'Dust': ['haboob', 'red-dawn'],
+    'Wind': ['breeze', 'trade-winds', 'gale', 'jet-stream', 'southerly-buster']
   };
 
   const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -726,7 +887,7 @@
   }
 
   return {
-    version: '0.5.0',
+    version: '0.6.0',
     register, mount, MODES, STATE_TO_MODE, BODIES, GROUPS,
     draw: (mode, ctx, size, t, dark, opts) => MODES[mode].draw(ctx, size, t, dark, opts),
     // draw a named event: Coriolis.body('yasi', ctx, 64, t, dark, { lite: true })

@@ -47,7 +47,7 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
 <header class="wrap">
   <div class="eyebrow" id="eyebrow">coriolis</div>
   <h1>Weather events, drawn as dots.</h1>
-  <p class="lede">Cyclones as the satellite sees them, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit by their own lightning, lightning on its own, tornadoes from rope to wedge, the aurora, rain and snow. Forty-five named events. No dependencies, one script.</p>
+  <p class="lede">Cyclones as the satellite sees them, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit by their own lightning, lightning on its own, tornadoes from rope to wedge, the aurora, rain and snow, dust storms and wind. Fifty-five named events. No dependencies, one script.</p>
   <div class="hero"><canvas class="wx" width="720" height="360" data-wx-body="yasi" data-wx-ground="1"></canvas></div>
 </header>
 
@@ -60,7 +60,7 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
 
   <h2>Use it</h2>
   <p class="sub">One script, then a canvas per storm. Height is the size; a wider canvas gives the outer bands room.</p>
-  <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.5.0/dist/coriolis.min.js"&gt;&lt;/script&gt;
+  <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.6.0/dist/coriolis.min.js"&gt;&lt;/script&gt;
 &lt;canvas class="wx" width="200" height="200" data-wx-body="tracy"&gt;&lt;/canvas&gt;</code></pre>
   <table>
     <tr><th>attribute</th><th>value</th><th>what it does</th></tr>
@@ -72,7 +72,10 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
     <tr><td>data-wx-pitch</td><td>degrees</td><td>inflow angle, 22 by default; lower winds the bands tighter</td></tr>
     <tr><td>data-wx-reach</td><td>number</td><td>storm size relative to the canvas, 1 fills it</td></tr>
     <tr><td>data-wx-omega</td><td>number</td><td>wind at the eyewall, radians a second</td></tr>
-    <tr><td>data-wx-form</td><td>puff, roll</td><td>clouds: cumulus heads, or one rolling tube</td></tr>
+    <tr><td>data-wx-form</td><td>puff, roll, lenticular, mammatus, cirrus</td><td>clouds: cumulus heads, one rolling tube, a stack of lenses, pouches under an anvil, or mare's tails</td></tr>
+    <tr><td>data-wx-form</td><td>wall, haze</td><td>dust: a haboob rolling in, or the whole sky full of it</td></tr>
+    <tr><td>data-wx-form</td><td>steady, jet, front, gusty</td><td>wind: a steady flow, a jet stream, a front sweeping through, or a gale</td></tr>
+    <tr><td>data-wx-speed / -churn</td><td>number</td><td>wind: how fast (1) · how much the field churns (0.6)</td></tr>
     <tr><td>data-wx-puffs / -radius / -spin / -drift</td><td>number</td><td>clouds: how many heads · size as a fraction of the height · roll or tumble rate · drift in widths a second</td></tr>
     <tr><td>data-wx-rate / -cg</td><td>number</td><td>thunderstorm: flashes a second · share that strike the ground (0 to 1)</td></tr>
     <tr><td>data-wx-anvil / -tower</td><td>number</td><td>thunderstorm: anvil width and tower height, 1 by default</td></tr>
@@ -138,15 +141,26 @@ const META = {
   monsoon: 'Darwin · the wet: heavy, slanted, everywhere',
   snow: 'flakes that drift and sway; the near ones are big and quick',
   blizzard: 'snow going sideways',
-  hail: 'stones that fall hard and bounce'
+  hail: 'stones that fall hard and bounce',
+  lenticular: 'a stack of lenses parked over a ridge; the air moves, the cloud stays',
+  mammatus: 'pouches hanging under an anvil, lit from below',
+  cirrus: "mare's tails: high, thin, combed by the wind",
+  haboob: '2011 · Phoenix · a wall of dust a mile high',
+  'red-dawn': '2009 · Sydney · the morning the sky turned red',
+  breeze: 'a light, steady flow',
+  'trade-winds': 'steady from one quarter, day after day',
+  gale: 'churning, gusting',
+  'jet-stream': 'a fast meandering core across the middle',
+  'southerly-buster': 'a line of strong wind sweeping through'
 };
 const SUB = { Cyclones: 'South of the equator. Clockwise.', Hurricanes: 'The Atlantic and eastern Pacific. Anticlockwise.', Typhoons: 'The western Pacific. Anticlockwise.',
   Clouds: 'From the side. Puffs tumble forward; a roll cloud turns about its own axis.', Thunderstorms: 'At night. Each flash is on a schedule hashed from the clock, so a still frame works too.',
   Lightning: 'The bolt itself. Every strike is a different shape; ball lightning lives eight seconds.',
   Tornadoes: 'From the side. Dots ride round the funnel, fastest where it is narrow.',
   Aurora: 'Curtains across the sky, brightest along the lower edge, rays shimmering above.',
-  'Rain and snow': 'Every drop has its own depth: the near ones are bigger and fall faster.' };
-const WIDE = { Clouds: 1, Thunderstorms: 1, Lightning: 1, Aurora: 1, 'Rain and snow': 1 };
+  'Rain and snow': 'Every drop has its own depth: the near ones are bigger and fall faster.',
+  Dust: 'A wall rolling in, or the murk the day after.', Wind: 'Streaks riding a flow field, coloured by speed, the way a wind map does.' };
+const WIDE = { Clouds: 1, Thunderstorms: 1, Lightning: 1, Aurora: 1, 'Rain and snow': 1, Dust: 1, Wind: 1 };
 const nice = s => s[0].toUpperCase() + s.slice(1);
 const cell = (attrs, nm, meta, wide) => `<div class="cell"><canvas class="wx" width="${wide ? 220 : 150}" height="${wide ? 140 : 150}" ${attrs}></canvas><div class="nm">${nm}</div><div class="meta">${meta}</div></div>`;
 let h = '';

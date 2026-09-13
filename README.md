@@ -1,13 +1,13 @@
 # Coriolis
 
-Weather events, drawn as dots. Cyclones as the satellite sees them, an eye, an eyewall and rainbands spiralling in, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit from inside by their own lightning, lightning on its own, tornadoes from rope to wedge, the aurora, rain and snow. Forty-five named events. Canvas 2D, no dependencies, one script.
+Weather events, drawn as dots. Cyclones as the satellite sees them, an eye, an eyewall and rainbands spiralling in, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit from inside by their own lightning, lightning on its own, tornadoes from rope to wedge, the aurora, rain and snow, dust storms and wind. Fifty-five named events. Canvas 2D, no dependencies, one script.
 
 Sister library to [Ephemeris](https://github.com/TonkaTuff/ephemeris), and the dots are sized to match, so the two sit together on a page.
 
 ## Use it
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.5.0/dist/coriolis.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.6.0/dist/coriolis.min.js"></script>
 <canvas class="wx" width="200" height="200" data-wx-body="tracy"></canvas>
 ```
 
@@ -37,6 +37,9 @@ One event at a time, if that's all you need: `dist/<name>.min.js` is the core pl
 | Clouds | `cumulus` | fair-weather heads that drift along and tumble forward |
 | | `morning-glory` | the Gulf of Carpentaria's roll cloud, up to a thousand km long, turning about its own axis as it comes |
 | | `shelf-cloud` | the low dark leading edge of a squall line |
+| | `lenticular` | a stack of smooth lenses parked over a ridge; the air moves through, the cloud stays |
+| | `mammatus` | pouches hanging under an anvil, lit from below by a low sun |
+| | `cirrus` | mare's tails: high thin streaks combed by the wind |
 | Thunderstorms | `thunderstorm` | a cumulonimbus at night, lit from inside |
 | | `supercell` | a wide anvil and more strikes to the ground |
 | | `hector` | the Tiwi Islands' storm, up most afternoons of the build-up |
@@ -64,6 +67,13 @@ One event at a time, if that's all you need: `dist/<name>.min.js` is the core pl
 | | `snow` | flakes that drift and sway |
 | | `blizzard` | snow going sideways |
 | | `hail` | stones that fall hard and bounce |
+| Dust | `haboob` | 2011, Phoenix. A wall of dust a mile high rolling in, fine dust blown out ahead of it |
+| | `red-dawn` | 2009, Sydney. The whole sky full of it, a dim sun through the murk |
+| Wind | `breeze` | a light, steady flow |
+| | `trade-winds` | steady from one quarter |
+| | `gale` | churning and gusting |
+| | `jet-stream` | a fast meandering core across the middle |
+| | `southerly-buster` | a line of strong wind sweeping through |
 
 Cyclones spin clockwise, hurricanes and typhoons anticlockwise. That's the Coriolis effect, and the library's name.
 
@@ -79,7 +89,11 @@ Cyclones spin clockwise, hurricanes and typhoons anticlockwise. That's the Corio
 | `data-wx-pitch` | degrees | inflow angle, 22 by default; lower winds the bands tighter |
 | `data-wx-reach` | number | storm size relative to the canvas, 1 fills it |
 | `data-wx-omega` | number | wind at the eyewall in radians a second, 1.1 by default |
-| `data-wx-form` | `puff`, `roll` | clouds: cumulus heads, or one rolling tube |
+| `data-wx-form` | `puff`, `roll`, `lenticular`, `mammatus`, `cirrus` | clouds: cumulus heads, one rolling tube, a stack of lenses, pouches under an anvil, or mare's tails |
+| `data-wx-form` | `wall`, `haze` | dust: a haboob rolling in, or the whole sky full of it |
+| `data-wx-form` | `steady`, `jet`, `front`, `gusty` | wind: a steady flow, a jet stream, a front sweeping through, or a gale |
+| `data-wx-churn` | number | wind: how much the field churns, 0.6 by default |
+| `data-wx-speed` | number | wind too: how fast, 1 by default |
 | `data-wx-puffs` | number | clouds: how many heads, 3 by default |
 | `data-wx-radius` | number | clouds: size as a fraction of the height, 0.2 by default |
 | `data-wx-spin` | number | clouds: roll or tumble rate in radians a second |

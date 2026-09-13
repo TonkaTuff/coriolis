@@ -1,13 +1,13 @@
 # Coriolis
 
-Weather events, drawn as dots. Cyclones as the satellite sees them, an eye, an eyewall and rainbands spiralling in, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit from inside by their own lightning. Twenty-two named events. Canvas 2D, no dependencies, one script.
+Weather events, drawn as dots. Cyclones as the satellite sees them, an eye, an eyewall and rainbands spiralling in, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit from inside by their own lightning, and lightning on its own: fork, sheet, crawler and ball. Twenty-seven named events. Canvas 2D, no dependencies, one script.
 
 Sister library to [Ephemeris](https://github.com/TonkaTuff/ephemeris), and the dots are sized to match, so the two sit together on a page.
 
 ## Use it
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.2.0/dist/coriolis.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.3.0/dist/coriolis.min.js"></script>
 <canvas class="wx" width="200" height="200" data-wx-body="tracy"></canvas>
 ```
 
@@ -41,6 +41,11 @@ One event at a time, if that's all you need: `dist/<name>.min.js` is the core pl
 | | `supercell` | a wide anvil and more strikes to the ground |
 | | `hector` | the Tiwi Islands' storm, up most afternoons of the build-up |
 | | `catatumbo` | Lake Maracaibo, the most lightning on Earth, nearly all of it inside the cloud |
+| Lightning | `fork-lightning` | a big strike to the ground: the stepped leader feels its way down, then the return stroke |
+| | `anvil-crawler` | a bolt spidering sideways along a cloud base |
+| | `sheet-lightning` | a cloud lit from inside, no channel to see |
+| | `ball-lightning` | a glowing sphere that swells in, drifts, pulses, sheds sparks and bursts |
+| | `megaflash` | the 2020 record, 768 km from Texas to Mississippi, as a long crawler |
 
 Cyclones spin clockwise, hurricanes and typhoons anticlockwise. That's the Coriolis effect, and the library's name.
 
@@ -65,6 +70,10 @@ Cyclones spin clockwise, hurricanes and typhoons anticlockwise. That's the Corio
 | `data-wx-cg` | 0–1 | thunderstorm: share of flashes that strike the ground, 0.5 by default |
 | `data-wx-anvil`, `data-wx-tower` | number | thunderstorm: anvil width and tower height, 1 by default |
 | `data-wx-rain` | `0` | thunderstorm: no rain under the base |
+| `data-wx-form` | `fork`, `crawler`, `sheet`, `ball` | lightning: a strike to the ground, one along the cloud base, a cloud lit from inside, or ball lightning |
+| `data-wx-branches` | number | lightning: forks off the channel, 6 by default |
+| `data-wx-life` | seconds | ball lightning: one life, 8 by default |
+| `data-wx-rate` | number | lightning too: strikes a second, 0.7 by default |
 | `data-wx-ink` | `1` | monochrome dots that follow the page theme |
 | `data-wx-lite` | `1` | half the dots |
 | `data-wx-ground` | `1` | a pill of sea or sky behind it; each event brings its own, or pass `sky: ['#top', '#bottom']` in JavaScript |

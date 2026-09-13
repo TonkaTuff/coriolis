@@ -40,7 +40,7 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
 <header class="wrap">
   <div class="eyebrow" id="eyebrow">coriolis</div>
   <h1>Weather events, drawn as dots.</h1>
-  <p class="lede">Cyclones as the satellite sees them, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit by their own lightning. Twenty-two named events. No dependencies, one script.</p>
+  <p class="lede">Cyclones as the satellite sees them, spinning the right way for their hemisphere. Cumulus and roll clouds from the side. Thunderstorms at night, lit by their own lightning, and lightning on its own: fork, sheet, crawler and ball. Twenty-seven named events. No dependencies, one script.</p>
   <div class="hero"><canvas class="wx" width="720" height="360" data-wx-body="yasi" data-wx-ground="1"></canvas></div>
 </header>
 
@@ -53,7 +53,7 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
 
   <h2>Use it</h2>
   <p class="sub">One script, then a canvas per storm. Height is the size; a wider canvas gives the outer bands room.</p>
-  <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.2.0/dist/coriolis.min.js"&gt;&lt;/script&gt;
+  <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/TonkaTuff/coriolis@v0.3.0/dist/coriolis.min.js"&gt;&lt;/script&gt;
 &lt;canvas class="wx" width="200" height="200" data-wx-body="tracy"&gt;&lt;/canvas&gt;</code></pre>
   <table>
     <tr><th>attribute</th><th>value</th><th>what it does</th></tr>
@@ -70,6 +70,8 @@ footer{padding:44px 0 64px;color:var(--ink-3);font-size:14px}
     <tr><td>data-wx-rate / -cg</td><td>number</td><td>thunderstorm: flashes a second · share that strike the ground (0 to 1)</td></tr>
     <tr><td>data-wx-anvil / -tower</td><td>number</td><td>thunderstorm: anvil width and tower height, 1 by default</td></tr>
     <tr><td>data-wx-rain</td><td>0</td><td>thunderstorm: no rain under the base</td></tr>
+    <tr><td>data-wx-form</td><td>fork, crawler, sheet, ball</td><td>lightning: a strike to the ground, one along the cloud base, a cloud lit from inside, or ball lightning</td></tr>
+    <tr><td>data-wx-branches / -life / -radius</td><td>number</td><td>lightning: forks off the channel (6) · a ball's life in seconds (8) · its size as a fraction of the height (0.09)</td></tr>
     <tr><td>data-wx-ink / -lite / -ground</td><td>1</td><td>monochrome dots that follow the page theme · half the dots · dark sea under the cloud</td></tr>
     <tr><td>data-wx-glow</td><td>0</td><td>no soft glow under the core, just the dots on a clear canvas</td></tr>
   </table>
@@ -101,11 +103,17 @@ const META = {
   thunderstorm: 'a cumulonimbus at night, lit from inside',
   supercell: 'a rotating giant with a wide anvil, ground strikes',
   hector: 'Tiwi Islands · the same storm most afternoons of the build-up',
-  catatumbo: 'Lake Maracaibo · the most lightning on Earth, nearly all in the cloud'
+  catatumbo: 'Lake Maracaibo · the most lightning on Earth, nearly all in the cloud',
+  'fork-lightning': 'a stepped leader feels its way down, then the return stroke',
+  'anvil-crawler': 'spidering sideways along a cloud base',
+  'sheet-lightning': 'a cloud lit from inside, no channel to see',
+  'ball-lightning': 'swells in, drifts, pulses, bursts',
+  megaflash: '2020 · Texas to Mississippi · 768 km, the longest flash on record'
 };
 const SUB = { Cyclones: 'South of the equator. Clockwise.', Hurricanes: 'The Atlantic and eastern Pacific. Anticlockwise.', Typhoons: 'The western Pacific. Anticlockwise.',
-  Clouds: 'From the side. Puffs tumble forward; a roll cloud turns about its own axis.', Thunderstorms: 'At night. Each flash is on a schedule hashed from the clock, so a still frame works too.' };
-const WIDE = { Clouds: 1, Thunderstorms: 1 };
+  Clouds: 'From the side. Puffs tumble forward; a roll cloud turns about its own axis.', Thunderstorms: 'At night. Each flash is on a schedule hashed from the clock, so a still frame works too.',
+  Lightning: 'The bolt itself. Every strike is a different shape; ball lightning lives eight seconds.' };
+const WIDE = { Clouds: 1, Thunderstorms: 1, Lightning: 1 };
 const nice = s => s[0].toUpperCase() + s.slice(1);
 const cell = (attrs, nm, meta, wide) => `<div class="cell"><canvas class="wx" width="${wide ? 220 : 150}" height="${wide ? 140 : 150}" ${attrs}></canvas><div class="nm">${nm}</div><div class="meta">${meta}</div></div>`;
 let h = '';

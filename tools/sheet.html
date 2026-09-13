@@ -8,8 +8,8 @@
 <script src="/dist/coriolis.min.js"></script>
 <script>
 const rows = document.getElementById('rows');
-const T = [0.2, 0.7, 1.2, 1.7, 2.2, 2.7, 3.2, 3.7];
-for (const name of ['thunderstorm', 'supercell', 'hector', 'catatumbo', 'cumulus', 'morning-glory', 'shelf-cloud']) {
+const T = [0.1, 0.3, 0.5, 0.8, 1.2, 1.7, 2.4, 3.3, 5.1, 7.4];
+for (const name of ['fork-lightning', 'anvil-crawler', 'sheet-lightning', 'ball-lightning', 'megaflash', 'thunderstorm', 'cumulus', 'morning-glory']) {
   const r = document.createElement('div'); r.className = 'r'; r.innerHTML = `<b>${name}</b>`;
   for (const t of T) {
     const c = document.createElement('canvas'); c.width = 150; c.height = 110;

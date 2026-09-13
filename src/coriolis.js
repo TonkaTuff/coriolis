@@ -1,4 +1,4 @@
-/*! coriolis 0.2.0 — weather events, drawn as dots. Canvas 2D, no dependencies. MIT. */
+/*! coriolis 0.3.0 — weather events, drawn as dots. Canvas 2D, no dependencies. MIT. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.Coriolis = factory();
@@ -72,6 +72,7 @@
     bg.addColorStop(0, top); bg.addColorStop(1, bottom);
     ctx.fillStyle = bg; ctx.fillRect(0, 0, W, size);
   }
+  const DUSK = ['#0d1226', '#141a33'];   // night sky, for the storm and lightning modes
   function paintRim(ctx, W, size) {
     const half = size / 2, cx = W / 2, R = half * 0.98;
     ctx.strokeStyle = 'rgba(150,175,220,0.18)'; ctx.lineWidth = 1;
@@ -214,7 +215,6 @@
   // work. A cloud-to-ground bolt forks to the bottom of the canvas with restrikes; the rest flicker
   // inside the cloud. Rain falls under the base.
   const NIGHT = { cold: [55, 65, 90], mid: [140, 150, 180], hot: [235, 240, 255], glow: [120, 150, 255] };
-  const DUSK = ['#0d1226', '#141a33'];
   function drawStorm(ctx, size, t, dark, o = {}) {
     const W = o.w ?? size, half = size / 2, cx = W / 2;
     const ink = !!o.ink, pal = buildPal(o.palette || NIGHT);
@@ -293,11 +293,131 @@
     if (o.ground) paintRim(ctx, W, size);
   }
 
+  /* ================================================================== lightning */
+  // Lightning as the subject. `form: 'fork'` is a big cloud-to-ground strike: a stepped leader feels
+  // its way down in the dark, forking as it goes, then the return stroke lights the whole channel
+  // white with restrikes and fades. A new bolt every 1/rate seconds, each a different shape, hashed
+  // from its slot so a still frame and a loop both work. 'crawler' runs the bolt sideways along a
+  // cloud base. 'sheet' lights a cloud from inside with no channel to see. 'ball' is ball lightning:
+  // a glowing sphere that swells in, drifts, pulses, sheds sparks and bursts.
+  const BOLT = { cold: [90, 80, 200], mid: [190, 200, 255], hot: [255, 255, 255], glow: [130, 150, 255] };
+  const EMBER = { cold: [255, 120, 40], mid: [255, 200, 120], hot: [255, 250, 230], glow: [255, 160, 60] };
+  function drawLightning(ctx, size, t, dark, o = {}) {
+    const W = o.w ?? size, half = size / 2, cx = W / 2;
+    const form = o.form || 'fork', ball = form === 'ball', sheet = form === 'sheet', across = form === 'crawler';
+    const ink = !!o.ink, pal = buildPal(o.palette || (ball ? EMBER : BOLT));
+    const M = radiusScale(size), lite = o.lite ? 0.5 : 1, rMin = 0.3;
+    const dot = dotPainter(ctx, ink, dark);
+    const glowAt = (x, y, r, a) => {
+      if (ink || o.glow === false || a < 0.01) return;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, rgba(pal.glow, a)); g.addColorStop(1, rgba(pal.glow, 0));
+      ctx.fillStyle = g; ctx.fillRect(-W, -size, 2 * W, 2 * size);
+    };
+
+    ctx.save();
+    if (o.ground) paintPill(ctx, W, size, (o.sky || DUSK)[0], (o.sky || DUSK)[1]);
+    ctx.translate(cx, half);
+    ctx.globalCompositeOperation = ink ? 'source-over' : 'lighter';
+
+    if (ball) {
+      // one life of `life` seconds: in over half a second, a wandering drift, out in a burst of sparks
+      const life = o.life ?? 8, cyc = Math.floor(t / life), age = t - cyc * life, R = size * (o.radius ?? 0.09);
+      const bx = (noise(t * 0.12 + cyc * 5.3, 1.5) - 0.5) * 0.7 * W, by = (noise(2.5, t * 0.1 + cyc * 3.1) - 0.5) * 0.5 * size;
+      const burst = clamp01((age - (life - 1.1)) / 0.5), env = smooth(age / 0.6) * (1 - burst);
+      const bright = env * (0.75 + 0.25 * Math.sin(t * 9 + 3 * Math.sin(t * 2.3)));
+      glowAt(bx, by, R * 4, 0.5 * bright);
+      const N = Math.round((o.n ?? 380) * countScale(size, 1.1, 12) * lite * (ink ? 0.5 : 1));
+      for (let i = 0; i < N; i++) {   // the core, dense in the middle, boiling at the edge
+        const a = E(i, 1.1) * TAU + t * (0.6 + E(i, 1.2)), rr = R * Math.sqrt(E(i, 2.2)) * (1 + 0.18 * (noise(Math.cos(a) * 2 + t * 0.8, Math.sin(a) * 2 + i * 0.01) - 0.5));
+        const heat = clamp01(1.05 - rr / R), al = bright * (0.35 + 0.65 * heat);
+        dot(bx + Math.cos(a) * rr, by + Math.sin(a) * rr, Math.max(rMin, (0.8 + 1.2 * heat) * M), ink ? null : ramp(pal.ramp, heat), al, ink ? 0.3 * (1 - heat) : 0);
+      }
+      const ns = Math.round(N * 0.18);
+      for (let i = 0; i < ns; i++) {   // sparks, escaping outward, all at once at the burst
+        const a = E(i, 3.3) * TAU, f = frac(E(i, 4.4) + t * 0.35), rr = R * (1 + 1.8 * f + 7 * burst * burst * E(i, 5.5));
+        const al = (burst ? 0.9 * (1 - burst) : env * (1 - f)) * 0.8;
+        dot(bx + Math.cos(a) * rr, by + Math.sin(a) * rr, Math.max(rMin, 0.7 * M), pal.ramp[1], al, ink ? 0.4 : 0);
+      }
+      ctx.restore();
+      if (o.ground) paintRim(ctx, W, size);
+      return;
+    }
+
+    // the cloud the bolt comes from: a band along the top, billowy underneath, lit near the channel
+    const base = sheet ? -size * 0.12 : across ? -size * 0.22 : -size * 0.36;   // where the cloud base sits
+    const P = 1 / (o.rate ?? 0.7), slot = Math.floor(t / P);
+    const bolts = [];
+    for (const s of [slot - 1, slot]) {   // a flash can straddle the slot boundary
+      const age = t - (s * P + E(s, 3.3) * P * 0.3);
+      if (age < 0 || age > 1.5) continue;
+      const lead = 0.32, a = age - lead;   // the leader's time, then the return stroke's
+      const I = age < lead ? 0 : Math.min(1, Math.exp(-a * 7) + 0.7 * Math.exp(-((a - 0.18) ** 2) * 300) + 0.45 * Math.exp(-((a - 0.33) ** 2) * 400)) * (age > 0.9 ? Math.exp(-(age - 0.9) * 4) : 1);
+      bolts.push({ s, age, p: clamp01(age / lead), I });
+    }
+    const flash = bolts.reduce((m, b) => Math.max(m, b.I), 0);
+    const first = bolts[0], fx = first ? (E(first.s, 1.1) - 0.5) * 0.5 * W : 0;
+    const NC = Math.round((sheet ? 900 : 320) * countScale(size, 1.2, 14) * Math.sqrt(W / size) * lite * (ink ? 0.4 : 1));
+    if (flash) glowAt(sheet ? fx : across ? 0 : fx, base + (sheet ? size * 0.1 : -size * 0.08), size * (sheet ? 0.7 : 0.45), (sheet ? 0.6 : 0.35) * flash);
+    for (let i = 0; i < NC; i++) {
+      const x = (E(i, 6.6) - 0.5) * 1.05 * W, depth = E(i, 7.7);
+      const y = -size * 0.5 + (base + size * 0.5) * depth ** 0.6 + (noise(x / size * 4 + 2, depth * 3 + t * 0.03) - 0.5) * size * 0.12;
+      const tex = noise(x / size * 6, y / size * 6 + 9);
+      const lit = flash * Math.exp(-((x - fx) ** 2) / (2 * (0.35 * W) ** 2)) * (sheet ? 1 : 0.8);
+      const heat = clamp01(0.15 + 0.1 * depth + 0.9 * lit), al = (0.18 + 0.12 * tex + 0.7 * lit);
+      dot(x, y, Math.max(rMin, (0.9 + 0.6 * lit) * M), ink ? null : ramp(pal.ramp, heat), al, ink ? 0.6 * (1 - lit) : 0);
+    }
+    if (sheet) { ctx.restore(); if (o.ground) paintRim(ctx, W, size); return; }
+
+    // the bolt: a channel of short steps that wander with low-frequency noise and jitter with a hash,
+    // branches off it and branches off those, each point tagged with how far down the leader it sits
+    for (const b of bolts) {
+      const s = b.s, len = across ? W * 0.92 : size * 0.5 - base, step = len / 60;
+      const head = across ? 0 : Math.PI / 2, pts = [];
+      const walk = (bid, x, y, tilt, n, sc, level, a0, aSpan) => {
+        for (let j = 1; j <= n; j++) {
+          const ang = head + tilt + 1.1 * (noise(j * 0.12, bid * 1.7 + s * 0.31) - 0.5) * 2 * (level ? 0.7 : 1) + (E(bid, j) - 0.5) * 0.5;
+          x += Math.cos(ang) * step * sc; y += Math.sin(ang) * step * sc;
+          pts.push([x, y, a0 + aSpan * j / n, level]);
+        }
+        return pts.length - n;   // index of this walk's first point
+      };
+      const x0 = across ? -len / 2 : (E(s, 1.1) - 0.5) * 0.5 * W, y0 = across ? base + size * 0.05 : base;
+      const m0 = walk(s * 31, x0, y0, 0, 60, 1, 0, 1);
+      const nb = o.branches ?? 7;
+      for (let k = 0; k < nb; k++) {
+        const j = 6 + Math.floor(E(s, 20 + k) * 44), [px, py, pa] = pts[m0 + j];
+        const side = E(s, 40 + k) < 0.5 ? -1 : 1, n1 = 10 + Math.floor(E(s, 60 + k) * 12);
+        const b0 = walk(s * 31 + 1 + k, px, py, side * (0.5 + 0.7 * E(s, 80 + k)), n1, 0.75, 1, pa, 0.22);
+        if (E(s, 100 + k) < 0.85) {   // a twig off the branch
+          const j2 = 2 + Math.floor(E(s, 120 + k) * (n1 - 4)), [qx, qy, qa] = pts[b0 + j2];
+          walk(s * 31 + 40 + k, qx, qy, side * (0.9 + 0.6 * E(s, 140 + k)), 4 + Math.floor(E(s, 160 + k) * 5), 0.5, 2, qa, 0.1);
+        }
+      }
+      const lvlA = [1, 0.6, 0.38], lvlR = [1.7, 1.0, 0.7];
+      for (const [x, y, along, level] of pts) {
+        let al, heat, r = lvlR[level] * M;
+        if (b.age < 0.32) {   // the leader: dim and cold, brightest at its advancing tip
+          if (along > b.p) continue;
+          const tip = clamp01(1 - (b.p - along) / 0.08);
+          al = (0.18 + 0.6 * tip) * lvlA[level]; heat = 0.35 + 0.4 * tip; r *= 0.7;
+        } else {              // the return stroke and its afterglow
+          al = b.I * lvlA[level]; heat = clamp01(0.5 + 0.5 * b.I); r *= 0.8 + 0.5 * b.I;
+        }
+        if (level === 0 && !ink) dot(x, y, r * 2.1, pal.ramp[1], al * 0.14, 0);   // a soft halo along the channel
+        dot(x, y, Math.max(rMin, r), ink ? null : ramp(pal.ramp, heat), al, ink ? 0.1 : 0);
+      }
+    }
+    ctx.restore();
+    if (o.ground) paintRim(ctx, W, size);
+  }
+
   /* ================================================================== registry + driver */
   const MODES = {
     cyclone: { draw: drawCyclone, defaults: CLOUD,   state: 'spinning' },
     clouds:  { draw: drawClouds,  defaults: CUMULUS, state: 'drifting' },
-    storm:   { draw: drawStorm,   defaults: NIGHT,   state: 'flashing' }
+    storm:   { draw: drawStorm,   defaults: NIGHT,   state: 'flashing' },
+    lightning: { draw: drawLightning, defaults: BOLT, state: 'striking' }
   };
   const STATE_TO_MODE = Object.fromEntries(Object.entries(MODES).map(([m, v]) => [v.state, m]));
 
@@ -335,7 +455,13 @@
     'supercell':    { mode: 'storm', opts: { rate: 0.8, cg: 0.6, anvil: 1.25, tower: 1.08 } },
     'hector':       { mode: 'storm', opts: { rate: 1.0, cg: 0.45, anvil: 1.15 } },
     'catatumbo':    { mode: 'storm', opts: { rate: 1.8, cg: 0.2, sky: ['#0c1024', '#1a1430'] },
-                      palette: P([70, 60, 110], [160, 150, 200], [245, 240, 255], [170, 120, 255]) }
+                      palette: P([70, 60, 110], [160, 150, 200], [245, 240, 255], [170, 120, 255]) },
+    // lightning
+    'fork-lightning':  { mode: 'lightning', opts: { form: 'fork' } },
+    'anvil-crawler':   { mode: 'lightning', opts: { form: 'crawler', rate: 0.5 } },
+    'sheet-lightning': { mode: 'lightning', opts: { form: 'sheet', rate: 0.9 } },
+    'ball-lightning':  { mode: 'lightning', opts: { form: 'ball' } },
+    'megaflash':       { mode: 'lightning', opts: { form: 'crawler', rate: 0.35, branches: 10 } }
   };
   // named events by family, in display order
   const GROUPS = {
@@ -343,7 +469,8 @@
     'Hurricanes': ['katrina', 'andrew', 'wilma', 'sandy', 'patricia', 'dorian'],
     'Typhoons': ['haiyan', 'tip'],
     'Clouds': ['cumulus', 'morning-glory', 'shelf-cloud'],
-    'Thunderstorms': ['thunderstorm', 'supercell', 'hector', 'catatumbo']
+    'Thunderstorms': ['thunderstorm', 'supercell', 'hector', 'catatumbo'],
+    'Lightning': ['fork-lightning', 'anvil-crawler', 'sheet-lightning', 'ball-lightning', 'megaflash']
   };
 
   const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -410,7 +537,7 @@
   }
 
   return {
-    version: '0.2.0',
+    version: '0.3.0',
     register, mount, MODES, STATE_TO_MODE, BODIES, GROUPS,
     draw: (mode, ctx, size, t, dark, opts) => MODES[mode].draw(ctx, size, t, dark, opts),
     // draw a named event: Coriolis.body('yasi', ctx, 64, t, dark, { lite: true })
